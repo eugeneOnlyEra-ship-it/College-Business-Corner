@@ -1,0 +1,10 @@
+/dist
+/node_modules
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage
+# throwaway PayPal test script with real secrets (the .example version is committed)
+paypal-test.mjs
