@@ -138,7 +138,10 @@ export class PaypalService {
   // ---- payments ----------------------------------------------------------
 
   /** One purchase unit per seller, so one order can pay several businesses. */
-  async createOrder(items: OrderItemDto[]) {
+  async createOrder(
+    items: OrderItemDto[],
+    paths: { returnPath?: string; cancelPath?: string } = {},
+  ) {
     if (!items?.length) throw new BadRequestException('Order needs at least one item');
 
     const purchase_units = items.map((item, i) => {
@@ -175,8 +178,8 @@ export class PaypalService {
         paypal: {
           experience_context: {
             user_action: 'PAY_NOW',
-            return_url: `${this.appBaseUrl}/paypal/return`,
-            cancel_url: `${this.appBaseUrl}/paypal/cancel`,
+            return_url: `${this.appBaseUrl}${paths.returnPath ?? '/paypal/return'}`,
+            cancel_url: `${this.appBaseUrl}${paths.cancelPath ?? '/paypal/cancel'}`,
           },
         },
       },

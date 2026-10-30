@@ -8,3 +8,9 @@
 coverage
 # throwaway PayPal test script with real secrets (the .example version is committed)
 paypal-test.mjs
+
+/src/generated/prisma
+
+# local SQLite database (judges recreate it from prisma/migrations + the seed script)
+*.db
+*.db-journal

@@ -1,0 +1,147 @@
+// College Business Corner data model.
+// ALL money is stored in whole cents (1000 = $10.00). Convert to "10.00" only when talking to PayPal.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  PENDING
+  READY
+}
+
+enum ListingKind {
+  PRODUCT
+  SERVICE
+}
+
+enum OrderStatus {
+  CREATED
+  AWAITING_APPROVAL
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PolicyDecision {
+  ALLOW
+  ASK
+  BLOCK
+}
+
+model User {
+  id         String     @id @default(cuid())
+  email      String     @unique
+  name       String
+  createdAt  DateTime   @default(now())
+  businesses Business[]
+  orders     Order[]
+}
+
+model Business {
+  id               String           @id @default(cuid())
+  ownerId          String
+  owner            User             @relation(fields: [ownerId], references: [id])
+  name             String
+  category         String // e.g. printing, salon, groceries, transport
+  description      String           @default("")
+  paypalTrackingId String           @unique
+  paypalMerchantId String?          @unique
+  onboarding       OnboardingStatus @default(NOT_STARTED)
+  createdAt        DateTime         @default(now())
+  listings         Listing[]
+  orderItems       OrderItem[]
+  payouts          OrderPayout[]
+
+  @@index([ownerId])
+}
+
+model Listing {
+  id          String      @id @default(cuid())
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id])
+  title       String
+  description String      @default("")
+  kind        ListingKind
+  priceCents  Int
+  currency    String      @default("USD")
+  unit        String? // e.g. "per 40 pages", "per haircut"
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  orderItems  OrderItem[]
+
+  @@index([businessId])
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  buyerId       String
+  buyer         User        @relation(fields: [buyerId], references: [id])
+  status        OrderStatus @default(CREATED)
+  totalCents    Int
+  currency      String      @default("USD")
+  paypalOrderId String?     @unique
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  items         OrderItem[]
+  payouts       OrderPayout[]
+  auditLogs     AuditLog[]
+
+  @@index([buyerId])
+}
+
+model OrderItem {
+  id               String   @id @default(cuid())
+  orderId          String
+  order            Order    @relation(fields: [orderId], references: [id])
+  listingId        String
+  listing          Listing  @relation(fields: [listingId], references: [id])
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id])
+  quantity         Int      @default(1)
+  unitPriceCents   Int
+  platformFeeCents Int // this line's share of the platform fee
+
+  @@index([orderId])
+  @@index([businessId])
+}
+
+// One row per seller per order: what PayPal actually captured for that seller.
+model OrderPayout {
+  id               String   @id @default(cuid())
+  orderId          String
+  order            Order    @relation(fields: [orderId], references: [id])
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id])
+  paypalMerchantId String
+  grossCents       Int
+  platformFeeCents Int
+  paypalFeeCents   Int? // filled in after capture
+  netCents         Int? // filled in after capture
+  paypalCaptureId  String?
+  captureStatus    String?
+
+  @@unique([orderId, businessId])
+  @@index([businessId])
+}
+
+// Every decision of the policy engine (allow / ask / block) is recorded here.
+model AuditLog {
+  id        String         @id @default(cuid())
+  createdAt DateTime       @default(now())
+  actor     String // "agent", "buyer", "system"
+  action    String // e.g. "checkout.request"
+  decision  PolicyDecision
+  reason    String
+  orderId   String?
+  order     Order?         @relation(fields: [orderId], references: [id])
+  payload   String         @default("{}") // JSON text
+
+  @@index([orderId])
+}

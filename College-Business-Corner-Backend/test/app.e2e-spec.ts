@@ -9,6 +9,8 @@ process.env.PAYPAL_CLIENT_SECRET = 'test';
 process.env.PAYPAL_BN_CODE = 'test';
 process.env.PAYPAL_PARTNER_MERCHANT_ID = 'test';
 process.env.APP_BASE_URL = 'http://localhost:3000';
+// PrismaService opens a SQLite file (needs `npx prisma generate` to have been run once).
+process.env.DATABASE_URL = 'file:./dev.db';
 
 describe('App wiring (e2e)', () => {
   let app: INestApplication;
