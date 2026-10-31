@@ -17,4 +17,16 @@ export class CreateStoreOrderDto {
     description: 'Buyer. Defaults to the seeded demo student until sign-in exists.',
   })
   buyerEmail?: string;
+
+  @ApiPropertyOptional({ example: 2500, description: 'Budget the buyer stated, in cents.' })
+  budgetCents?: number;
+
+  @ApiPropertyOptional({ example: 2500, description: 'Total quoted earlier, in cents. A different total makes the policy engine ask.' })
+  quotedTotalCents?: number;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Set true ONLY after the buyer approved a policy "ASK". Cannot override a BLOCK.',
+  })
+  confirmed?: boolean;
 }

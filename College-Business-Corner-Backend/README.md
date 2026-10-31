@@ -51,9 +51,24 @@ sellers and set `SEED_PRINT_MERCHANT_ID` / `SEED_SALON_MERCHANT_ID` in `.env` be
    PayPal redirects to `/orders/return`, which captures the payment and shows per-seller results.
 4. `GET /orders/{orderId}` shows the saved order, its items and each seller's payout.
 
+## Safety rules (policy engine)
+Every checkout request is judged by deterministic rules before PayPal is ever called, and each
+decision is saved in the audit log (`GET /policy/audit`).
+- **BLOCK** (final): seller not connected to PayPal, unknown/inactive listing, bad quantity, or total above `POLICY_HARD_CAP_CENTS` ($100).
+- **ASK** (buyer must confirm with `"confirmed": true`): total over the stated `budgetCents`, total above `POLICY_CONFIRM_ABOVE_CENTS` ($50), or the price changed since it was quoted.
+- **ALLOW**: everything else.
+Dry-run any cart with `POST /policy/check`.
+
+## Shopping agent (Gemini)
+`POST /agent/chat` with `{ "message": "I need 40 pages printed and a haircut, budget $25." }`.
+Needs `GEMINI_API_KEY` (free key from Google AI Studio) in `.env`; the model is `GEMINI_MODEL`.
+The agent has two tools: search listings, and request a checkout. It can only *propose*: the policy
+engine decides allow / ask / block, and the buyer approves any payment in PayPal. The response includes
+the reply, the checkout decision (with the PayPal `approveUrl` when allowed) and the tool steps taken.
+
 ## Scripts
 `npm run db:generate` | `npm run db:migrate` | `npm run db:seed` | `npm run db:studio` | `npm run build` | `npm test` (unit) | `npm run test:e2e` (wiring) | `npm run start:prod`
 
 ## Layout
-`src/paypal/` is the ONLY place that talks to PayPal. Built: paypal, prisma, listings, orders. Planned modules: auth, businesses,
+`src/paypal/` is the ONLY place that talks to PayPal. Built: paypal, prisma, listings, orders, policy, agent. Planned modules: auth, businesses,
 orders, policy, agent, audit (see handover doc).

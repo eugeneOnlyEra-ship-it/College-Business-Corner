@@ -1,29 +1,33 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { centsToDecimal, decimalToCents } from '../common/money.js';
 import { PaypalService } from '../paypal/paypal.service.js';
+import { PolicyService, type Actor } from '../policy/policy.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateStoreOrderDto } from './orders.dto.js';
-import { priceCart } from './pricing.js';
 
 const DEFAULT_BUYER_EMAIL = 'student@example.com';
 
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
-  private readonly feePercent: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly paypal: PaypalService,
-    config: ConfigService,
-  ) {
-    const raw = Number(config.get('PLATFORM_FEE_PERCENT') ?? 10);
-    this.feePercent = Number.isFinite(raw) && raw >= 0 && raw <= 50 ? raw : 10;
-  }
+    private readonly policy: PolicyService,
+  ) {}
 
-  /** Prices the cart from the database, saves the order, then creates the PayPal order. */
-  async createOrder(dto: CreateStoreOrderDto) {
+  /**
+   * Policy check first, then (only if allowed) save the order and create the PayPal payment.
+   * `actor` is who is asking: the buyer's own request, or the shopping agent.
+   */
+  async createOrder(dto: CreateStoreOrderDto, actor: Actor = 'buyer') {
     const buyer = await this.prisma.user.findUnique({
       where: { email: dto.buyerEmail ?? DEFAULT_BUYER_EMAIL },
     });
@@ -31,12 +35,37 @@ export class OrdersService {
       throw new NotFoundException('Buyer not found. Run `npm run db:seed` to create the demo student.');
     }
 
-    const ids = [...new Set((dto.items ?? []).map((i) => i?.listingId).filter(Boolean))];
-    const listings = await this.prisma.listing.findMany({
-      where: { id: { in: ids } },
-      include: { business: true },
+    const verdict = await this.policy.evaluate({
+      items: dto.items,
+      budgetCents: dto.budgetCents,
+      quotedTotalCents: dto.quotedTotalCents,
+      confirmed: dto.confirmed,
+      actor,
+      action: 'checkout.request',
     });
-    const cart = priceCart(dto.items, listings, this.feePercent);
+
+    if (verdict.decision === 'BLOCK') {
+      throw new UnprocessableEntityException({
+        decision: 'BLOCK',
+        message: 'This order was blocked by the safety rules.',
+        reasons: verdict.reasons,
+        auditId: verdict.auditId,
+      });
+    }
+
+    const cart = verdict.cart!;
+
+    if (verdict.decision === 'ASK') {
+      return {
+        decision: 'ASK' as const,
+        needsConfirmation: true,
+        message: 'The buyer must confirm before a payment is created. Send the same request with "confirmed": true.',
+        reasons: verdict.reasons,
+        totalCents: cart.totalCents,
+        platformFeeCents: cart.platformFeeCents,
+        auditId: verdict.auditId,
+      };
+    }
 
     const order = await this.prisma.order.create({
       data: {
@@ -77,7 +106,13 @@ export class OrdersService {
         where: { id: order.id },
         data: { paypalOrderId: pp.orderId, status: 'AWAITING_APPROVAL' },
       });
+      await this.prisma.auditLog.update({
+        where: { id: verdict.auditId },
+        data: { orderId: order.id },
+      });
       return {
+        decision: 'ALLOW' as const,
+        reasons: verdict.reasons,
         orderId: order.id,
         paypalOrderId: pp.orderId,
         status: 'AWAITING_APPROVAL',
@@ -92,6 +127,7 @@ export class OrdersService {
       };
     } catch (err) {
       await this.prisma.order.update({ where: { id: order.id }, data: { status: 'FAILED' } });
+      await this.prisma.auditLog.update({ where: { id: verdict.auditId }, data: { orderId: order.id } });
       throw err;
     }
   }
