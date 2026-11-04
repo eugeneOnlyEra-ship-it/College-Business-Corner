@@ -10,6 +10,7 @@ import { PaypalService } from '../paypal/paypal.service.js';
 import { PolicyService, type Actor } from '../policy/policy.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateStoreOrderDto } from './orders.dto.js';
+import { apportion, mergeByMerchant } from './units.js';
 
 const DEFAULT_BUYER_EMAIL = 'student@example.com';
 
@@ -54,6 +55,13 @@ export class OrdersService {
     }
 
     const cart = verdict.cart!;
+    const businessNames = new Map(cart.sellers.map((x) => [x.businessId, x.businessName]));
+    const lines = cart.lines.map((l) => ({
+      title: l.title,
+      quantity: l.quantity,
+      totalCents: l.lineTotalCents,
+      business: businessNames.get(l.businessId) ?? '',
+    }));
 
     if (verdict.decision === 'ASK') {
       return {
@@ -63,6 +71,7 @@ export class OrdersService {
         reasons: verdict.reasons,
         totalCents: cart.totalCents,
         platformFeeCents: cart.platformFeeCents,
+        lines,
         auditId: verdict.auditId,
       };
     }
@@ -94,7 +103,7 @@ export class OrdersService {
 
     try {
       const pp = await this.paypal.createOrder(
-        cart.sellers.map((s) => ({
+        mergeByMerchant(cart.sellers).map((s) => ({
           sellerMerchantId: s.merchantId,
           amount: centsToDecimal(s.amountCents),
           platformFee: centsToDecimal(s.platformFeeCents),
@@ -119,6 +128,7 @@ export class OrdersService {
         approveUrl: pp.approveUrl,
         totalCents: cart.totalCents,
         platformFeeCents: cart.platformFeeCents,
+        lines,
         sellers: cart.sellers.map((s) => ({
           business: s.businessName,
           amountCents: s.amountCents,
@@ -154,19 +164,29 @@ export class OrdersService {
       result.status === 'COMPLETED' &&
       order.payouts.every((p) => (bySeller.get(p.paypalMerchantId) as any)?.status === 'COMPLETED');
 
-    await this.prisma.$transaction([
-      ...order.payouts.map((p) => {
-        const c = bySeller.get(p.paypalMerchantId) as any;
-        return this.prisma.orderPayout.update({
+    // Businesses that share a PayPal account share one capture; PayPal's fee and the net amount are split by sale size.
+    const byMerchant = new Map<string, typeof order.payouts>();
+    for (const p of order.payouts) byMerchant.set(p.paypalMerchantId, [...(byMerchant.get(p.paypalMerchantId) ?? []), p]);
+    const payoutUpdates = [...byMerchant.entries()].flatMap(([merchantId, payouts]) => {
+      const c = bySeller.get(merchantId) as any;
+      const weights = payouts.map((p) => p.grossCents);
+      const fees = apportion(decimalToCents(c?.paypalFee), weights);
+      const nets = apportion(decimalToCents(c?.net), weights);
+      return payouts.map((p, i) =>
+        this.prisma.orderPayout.update({
           where: { id: p.id },
           data: {
             paypalCaptureId: c?.captureId ?? null,
             captureStatus: c?.status ?? null,
-            paypalFeeCents: decimalToCents(c?.paypalFee),
-            netCents: decimalToCents(c?.net),
+            paypalFeeCents: fees[i],
+            netCents: nets[i],
           },
-        });
-      }),
+        }),
+      );
+    });
+
+    await this.prisma.$transaction([
+      ...payoutUpdates,
       this.prisma.order.update({
         where: { id: order.id },
         data: { status: allCaptured ? 'COMPLETED' : 'FAILED' },

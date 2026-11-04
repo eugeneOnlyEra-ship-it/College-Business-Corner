@@ -52,7 +52,7 @@ model Business {
   category         String // e.g. printing, salon, groceries, transport
   description      String           @default("")
   paypalTrackingId String           @unique
-  paypalMerchantId String?          @unique
+  paypalMerchantId String?
   onboarding       OnboardingStatus @default(NOT_STARTED)
   createdAt        DateTime         @default(now())
   listings         Listing[]
@@ -144,4 +144,16 @@ model AuditLog {
   payload   String         @default("{}") // JSON text
 
   @@index([orderId])
+}
+
+/// Anonymous demand tracking: how often each keyword was searched on each day.
+/// Deliberately has no user, session, IP, full query text or time of day.
+model SearchInterest {
+  id    String @id @default(cuid())
+  day   String // UTC date, e.g. "2026-11-03"
+  term  String // one normalised keyword, e.g. "haircut"
+  count Int    @default(1)
+
+  @@unique([day, term])
+  @@index([term])
 }

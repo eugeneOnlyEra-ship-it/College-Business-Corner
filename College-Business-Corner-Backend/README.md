@@ -40,6 +40,9 @@ log in with the sandbox Business account, approve. Check the `merchantIdInPayPal
 No database server needed: the database is the single file `dev.db`. Money is stored in whole cents.
 Try `GET /listings?q=haircut` or `GET /listings?maxPriceCents=1000` in Swagger after seeding.
 Tables: User, Business, Listing, Order, OrderItem, AuditLog (see `prisma/schema.prisma`).
+One PayPal account can be connected to several businesses (a student with two side businesses needs only one PayPal account). When a buyer
+pays two businesses on the same account, PayPal gets one payment and the app records each business's share.
+
 The seed links two demo sellers to the author's PayPal sandbox merchants; to use your own, onboard
 sellers and set `SEED_PRINT_MERCHANT_ID` / `SEED_SALON_MERCHANT_ID` in `.env` before seeding.
 
@@ -66,9 +69,45 @@ The agent has two tools: search listings, and request a checkout. It can only *p
 engine decides allow / ask / block, and the buyer approves any payment in PayPal. The response includes
 the reply, the checkout decision (with the PayPal `approveUrl` when allowed) and the tool steps taken.
 
+## Sign-in (demo)
+Open the app and choose **I want to buy** or **I want to sell**, then enter an email (no password in this prototype),
+or use the **demo buyer / demo business owner** links. The backend returns a signed session token
+(`POST /auth/login`); owner endpoints (`/businesses/*`) need it and take the owner from the token, so one
+owner cannot manage another's business. In Swagger, paste the token into **Authorize**.
+Set `AUTH_SECRET` in `.env` (any long random string; required when `NODE_ENV=production`).
+Real sign-in (Google or magic links) is the production step.
+
+## Business assistant (owners)
+Owners get an **Assistant** tab. Tell it what you offer ("I offer salon services at $15") and it sets up the business and a clean,
+searchable listing, so the shopping assistant can find it. It then guides the owner through connecting PayPal: it checks the PayPal
+status, explains anything missing in plain words, and offers a **Connect PayPal** card that opens the PayPal approval link.
+It can only PROPOSE: each proposal is a card the owner confirms, and confirming calls the normal owner endpoints
+(`POST /businesses`, `/businesses/:id/listings`, `/businesses/:id/paypal/connect`), which validate everything again.
+Endpoint: `POST /agent/owner/chat` (owner sign-in required). Needs `GEMINI_API_KEY`.
+
+## Search and campus demand insights
+Shoppers search in **Browse** (type, then Enter or **Search**) or by asking the shopping assistant. Both go through `GET /listings?q=`.
+Each search is reduced to plain keywords ("cheap haircut near the hostel" becomes `haircut`, `hostel`) and a counter per keyword per day is
+added in the `SearchInterest` table. **Privacy by design:** no user, session, IP, full sentence or time of day is stored; text that looks like
+an email, link or phone number is dropped; a keyword is only shown to anyone after it has been searched at least twice.
+
+Owners can see the result in the Assistant ("Students are searching for...") and through `GET /insights/demand` (owner sign-in required).
+The owner assistant uses it through its `get_demand_insights` tool: for a student with no idea what to sell, it suggests ideas ranked by
+keywords that are searched often but have no listings yet, quotes the real counts, and offers to set the chosen idea up. With too little data
+it says so and offers general beginner ideas labelled as such.
+Owners who already have a business get **expansion tips** too: a special card saying, for example, "Students searched for 'laundry' 7 times in the last 30 days and nobody on campus sells it yet", with a rough start-up cost estimate and an **Add this to my business** button. The numbers on a tip card come from the real counts, so the assistant cannot make them up, and nothing is added unless the owner taps the button and confirms the listing.
+To try it: search a couple of things in Browse (twice each), then tell the owner assistant "I have no idea what to sell".
+Run `npm run db:migrate` once to create the table.
+
+## For business owners
+(All of these need an owner sign-in token.) `POST /businesses` registers a business, `POST /businesses/:id/listings` adds listings, and
+`POST /businesses/:id/paypal/connect` returns the PayPal setup link. `GET /businesses/:id/paypal/status`
+checks the setup, saves the merchant id automatically and says what is still missing.
+
+
 ## Scripts
 `npm run db:generate` | `npm run db:migrate` | `npm run db:seed` | `npm run db:studio` | `npm run build` | `npm test` (unit) | `npm run test:e2e` (wiring) | `npm run start:prod`
 
 ## Layout
-`src/paypal/` is the ONLY place that talks to PayPal. Built: paypal, prisma, listings, orders, policy, agent. Planned modules: auth, businesses,
+`src/paypal/` is the ONLY place that talks to PayPal. Built: paypal, prisma, listings, orders, policy, agent, businesses. Planned modules: auth, businesses,
 orders, policy, agent, audit (see handover doc).

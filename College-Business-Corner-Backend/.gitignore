@@ -14,3 +14,6 @@ paypal-test.mjs
 # local SQLite database (judges recreate it from prisma/migrations + the seed script)
 *.db
 *.db-journal
+
+# uploaded listing photos (created at runtime)
+/uploads

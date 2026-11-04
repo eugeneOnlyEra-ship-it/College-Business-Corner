@@ -68,6 +68,21 @@ describe('runAgentLoop', () => {
     expect(threw).toBe(true);
   });
 
+  it('retries a dropped connection (fetch failed) and then succeeds', async () => {
+    const client = fakeClient([new TypeError('fetch failed'), new TypeError('fetch failed'), { text: 'back online' }]);
+    const out = await runAgentLoop(base(client, async () => ({})));
+    expect(out.reply).toBe('back online');
+  });
+
+  it('does not retry a real client error such as 400', async () => {
+    const bad: any = new Error('bad request'); bad.status = 400;
+    const client = fakeClient([bad, { text: 'never reached' }]);
+    let threw = false;
+    try { await runAgentLoop(base(client, async () => ({}))); } catch { threw = true; }
+    expect(threw).toBe(true);
+    expect(client.calls).toHaveLength(1);
+  });
+
   it('stops after maxSteps if the model keeps calling tools', async () => {
     const loop = Array.from({ length: 10 }, () => ({ functionCalls: [{ name: 'search_listings', args: { q: 'a' } }] }));
     const out = await runAgentLoop(base(fakeClient(loop), async () => [], { maxSteps: 3 }));

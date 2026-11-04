@@ -33,13 +33,36 @@ export interface AgentLoopResult {
   finished: boolean;
 }
 
-// Free-tier limits reset over about a minute, so short retries do not help.
-const RETRY_DELAYS_MS = [4000, 12000, 25000];
+// Free-tier limits reset over about a minute, so rate-limit retries wait longer.
+// Dropped connections and brief server faults usually clear within seconds.
+const RATE_DELAYS_MS = [4000, 12000, 25000];
+const NETWORK_DELAYS_MS = [1500, 4000, 8000];
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+export const NETWORK_ERROR = /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|UND_ERR|socket|network/i;
+
+export function errorStatus(err: any): number | undefined {
+  if (typeof err?.status === 'number') return err.status;
+  if (typeof err?.code === 'number') return err.code;
+  return undefined;
+}
+
+export function isNetworkError(err: any): boolean {
+  return errorStatus(err) === undefined && NETWORK_ERROR.test(`${err?.message ?? ''} ${err?.cause?.code ?? ''}`);
+}
+
+function retryKind(err: any): 'rate' | 'network' | null {
+  const status = errorStatus(err);
+  if (status === 429 || status === 503) return 'rate';
+  if (status === 500 || status === 502 || status === 504) return 'network';
+  if (isNetworkError(err)) return 'network';
+  return null;
+}
 
 async function generateWithRetry(opts: AgentLoopOptions) {
   const sleep = opts.sleep ?? defaultSleep;
-  for (let attempt = 0; ; attempt++) {
+  const attempts = { rate: 0, network: 0 };
+  for (;;) {
     try {
       return await opts.client.models.generateContent({
         model: opts.model,
@@ -51,10 +74,11 @@ async function generateWithRetry(opts: AgentLoopOptions) {
         },
       });
     } catch (err: any) {
-      const status = err?.status ?? err?.code;
-      const retryable = status === 429 || status === 503;
-      if (!retryable || attempt >= RETRY_DELAYS_MS.length) throw err;
-      await sleep(RETRY_DELAYS_MS[attempt]);
+      const kind = retryKind(err);
+      if (!kind) throw err;
+      const delays = kind === 'rate' ? RATE_DELAYS_MS : NETWORK_DELAYS_MS;
+      if (attempts[kind] >= delays.length) throw err;
+      await sleep(delays[attempts[kind]++]);
     }
   }
 }

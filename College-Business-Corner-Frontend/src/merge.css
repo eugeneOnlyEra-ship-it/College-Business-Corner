@@ -1,0 +1,20 @@
+/* Styles for features added to the app after the redesign was forked:
+   listing photos, server-side search, and the owner assistant's cards. */
+.thumb { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; flex: none; margin-right: 12px; border: 1px solid var(--line); }
+.photo { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 10px; }
+.photo .thumb { margin-right: 0; }
+.lines li .grow { flex: 1; min-width: 0; }
+.lines li { align-items: center; }
+
+.search-row { display: flex; gap: 10px; align-items: center; width: 100%; }
+.search-row input[type='search'] { flex: 1; min-width: 0; }
+.search-row .primary { white-space: nowrap; min-height: 46px; }
+
+/* Owner assistant: proposal cards live inside chat bubbles */
+.bubble .card { margin-top: 12px; margin-bottom: 0; }
+.bubble .card .lines li > span:last-child { white-space: nowrap; }
+
+@media (max-width: 560px) {
+  .search-row { flex-direction: column; align-items: stretch; }
+  .photo { margin: 6px 0 0; }
+}

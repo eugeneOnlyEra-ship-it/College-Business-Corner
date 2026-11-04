@@ -1,0 +1,17 @@
+/* ── Hero: original illustrated scene (graduates, market stalls, coins) ── */
+.hero-blend { background-color: #0d4a34; background-image: url('/images/photos/hero.jpg'), url('/images/hero-scene.svg'); background-position: center bottom, center bottom; background-repeat: no-repeat; background-size: cover, 100% auto; }
+.hero-coin.hero-blend { background-image: url('/images/photos/market.jpg'), url('/images/market-coins.svg'); background-position: center, right center; background-size: cover, cover; }
+.hero-blend::before { z-index: 1; }
+.hero-blend > * { z-index: 3; }
+
+/* ── Demo sign-in ───────────────────────────────────────────────────── */
+.demo { gap: 10px; border-color: rgba(198,243,108,.28); }
+.demo h3 { margin: 0; font-size: 1.1rem; }
+.demo .fine { margin: 0; }
+.demo-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.demo-actions button { flex: 1 1 140px; }
+.ghost-dark {
+  font: inherit; font-weight: 600; cursor: pointer; color: #fff; background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.3); border-radius: 12px; padding: 11px 18px;
+}
+.ghost-dark:hover:not(:disabled) { background: rgba(198,243,108,.12); border-color: var(--lime); }

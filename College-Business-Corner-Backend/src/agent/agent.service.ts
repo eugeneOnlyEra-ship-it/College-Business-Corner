@@ -11,7 +11,7 @@ import { GoogleGenAI } from '@google/genai';
 import { ListingsService } from '../listings/listings.service.js';
 import { OrdersService } from '../orders/orders.service.js';
 import type { AgentChatDto } from './agent.dto.js';
-import { runAgentLoop } from './agent.loop.js';
+import { errorStatus, isNetworkError, runAgentLoop } from './agent.loop.js';
 import { SYSTEM_INSTRUCTION } from './agent.prompt.js';
 import { AGENT_TOOLS } from './agent.tools.js';
 
@@ -124,8 +124,14 @@ export class AgentService {
       };
     } catch (err: any) {
       if (err instanceof ServiceUnavailableException) throw err;
-      const status = err?.status ?? err?.code;
-      this.logger.error(`Gemini error ${status ?? ''}: ${String(err?.message ?? err).slice(0, 300)}`);
+      const status = errorStatus(err);
+      const cause = err?.cause?.code ? ` (${err.cause.code})` : '';
+      this.logger.error(`Gemini error ${status ?? ''}: ${String(err?.message ?? err).slice(0, 300)}${cause}`);
+      if (isNetworkError(err)) {
+        throw new ServiceUnavailableException(
+          "Could not reach Google's AI service after several tries. Check your internet connection and try again.",
+        );
+      }
       if (status === 429) {
         throw new ServiceUnavailableException('The assistant hit its free-tier request limit. Please wait about a minute and try again.');
       }

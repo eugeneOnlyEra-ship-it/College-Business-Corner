@@ -4,6 +4,7 @@ import { PaypalService } from './paypal.service.js';
 // Offline unit tests: only validation logic that runs BEFORE any PayPal request is made.
 const fakeConfig = {
   getOrThrow: (key: string) => `test-${key}`,
+  get: () => undefined,
 } as any;
 
 describe('PaypalService.createOrder validation', () => {

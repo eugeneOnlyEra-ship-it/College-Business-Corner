@@ -1,0 +1,121 @@
+/* ── Light theme: fresh cream + white surfaces, brand-green sidebar and accents ──
+   Loaded last. Delete the `import './light.css'` line in main.tsx to go back to dark. */
+:root {
+  --page: #f3f8ef; --paper: #ffffff; --ink: #14261b; --slate: #587060;
+  --line: rgba(20, 70, 40, .13); --mint: #e7f4e2;
+  --allow: #1c7a45; --ask: #9a6500; --block: #b3261e;
+  --accent: #1d7a45;
+  --shadow: 0 1px 2px rgba(20,60,35,.06), 0 14px 34px -22px rgba(20,60,35,.28);
+  --glow: 0 0 0 1px rgba(29,122,69,.18), 0 16px 34px -20px rgba(29,122,69,.35);
+}
+body { color-scheme: light; color: var(--ink);
+  background: radial-gradient(ellipse at 85% 0%, rgba(170,231,94,.28), transparent 34rem),
+              radial-gradient(ellipse at 20% 100%, rgba(78,179,123,.16), transparent 32rem), var(--page); }
+body::before { opacity: .5; background-image: radial-gradient(rgba(29,90,55,.12) .7px, transparent .7px); }
+
+/* sidebar: a lighter forest green instead of near-black */
+.top { background: linear-gradient(180deg, #1c5a38 0%, #14452a 100%); border-right: 1px solid rgba(255,255,255,.08); box-shadow: 10px 0 36px -22px rgba(20,60,35,.5); }
+.top nav a { color: #cfe6d5; }
+.top nav a:hover { background: rgba(255,255,255,.09); color: #fff; }
+.top .note:last-child { color: #b9d6c1; }
+.foot { color: var(--slate); }
+
+/* surfaces */
+.card, .stat, .biz, .receipt, .chat { background: #fff; }
+.card:hover, .stat:hover, .receipt:hover { box-shadow: var(--shadow); border-color: rgba(29,122,69,.28); }
+.biz:hover { box-shadow: var(--shadow), var(--glow); }
+.stat::after { border-color: rgba(29,122,69,.14); box-shadow: 0 0 0 13px rgba(29,122,69,.035), 0 0 0 27px rgba(29,122,69,.022); }
+.stat-label, .log-intro, .fine, .biz-body .lines small { color: var(--slate); }
+.stat-label::before { background: #7fcf4e; box-shadow: none; }
+.composer { background: #f5faf2; }
+.examples button { background: #f4f9f1; color: var(--ink); border-color: var(--line); }
+.examples button:hover:not(:disabled) { background: #fff; border-color: rgba(29,122,69,.45); box-shadow: 0 10px 22px -16px rgba(29,122,69,.45); }
+.bubble.assistant { background: #eaf5e6; border-color: #cfe6c8; color: var(--ink); }
+.bubble.user { background: #2a7a47; color: #fff; }
+.bubble hr { border-color: #cfe6c8; }
+.connect { background: #eaf5e6; border-color: #cfe6c8; }
+.receipt { background: #fff; }
+.log thead th { background: #eef6ea; color: var(--ink); }
+.log tbody tr:hover { background: #f4faf1; }
+.log tbody tr:hover { box-shadow: inset 3px 0 0 #7fcf4e; }
+
+/* forms and chips */
+.form label { color: var(--ink); }
+.form h2 { color: var(--ink); }
+.form input, .form select, textarea, .filters input[type='search'] { background: #fff; border-color: #cddcc8; color: var(--ink); }
+.form input::placeholder, textarea::placeholder, .filters input::placeholder { color: #8aa090; }
+.form input:hover:not(:focus), .form select:hover:not(:focus), textarea:hover:not(:focus), .filters input[type='search']:hover:not(:focus) { background-color: #fbfdf9; border-color: rgba(29,122,69,.45); }
+.form input:focus, .form select:focus, textarea:focus, .filters input[type='search']:focus { border-color: #2a9a5a; box-shadow: 0 0 0 4px rgba(42,154,90,.14); }
+.chip { background: #fff; border-color: #cddcc8; color: #2d4a38; }
+.chip:hover:not(.on) { background: #f1f8ee; color: var(--accent); border-color: rgba(29,122,69,.5); box-shadow: none; }
+.chip.on { background: #aae75e; color: #0f2a17; border-color: #aae75e; box-shadow: 0 6px 16px -10px rgba(120,190,60,.9); }
+
+/* accents that were lime-on-dark need to be green-on-light */
+.link, .total strong, .payouts td:last-child, .biz-body .lines li > span:last-child { color: var(--accent); }
+.top .link { color: #c6f36c; }
+.link:hover { color: #0f5a30; }
+.badge.ok { color: #14663a; background: rgba(28,122,69,.1); border-color: rgba(28,122,69,.25); }
+.badge.off { color: #587060; background: rgba(20,60,35,.06); border-color: rgba(20,60,35,.12); }
+.error { background: rgba(179,38,30,.08); border-color: rgba(179,38,30,.3); }
+.stamp.allow, .stamp.ask, .stamp.block { background: transparent; }
+:focus-visible, button:focus-visible, a:focus-visible { outline-color: #2a9a5a !important; }
+
+/* hero keeps its photo; lighter, greener tint so it feels fresh not heavy */
+.hero-blend::before { background: linear-gradient(to bottom, rgba(12,52,32,.5) 0%, rgba(12,52,32,.1) 50%, rgba(12,52,32,.32) 100%); }
+.login .hero { box-shadow: 0 26px 60px -34px rgba(20,60,35,.55); }
+
+/* demo card + student tiles on light */
+.demo { border-color: rgba(29,122,69,.28); background: #fff; }
+.ghost-dark { color: var(--ink); background: #f4f9f1; border-color: #bcd2b6; }
+.ghost-dark:hover:not(:disabled) { background: #eaf5e6; border-color: #2a9a5a; }
+.student { border-color: rgba(20,60,35,.14); }
+
+@media (max-width: 900px) { .top { background: rgba(24,76,48,.97); } }
+
+/* Wide banners (chat welcome, seller): show the graduates, not the bottom of the tall photo */
+.welcome .hero-blend { background-position: center 62%, center bottom; }
+.welcome .hero-blend::before, .hero-coin.hero-blend::before {
+  background: linear-gradient(100deg, rgba(12,52,32,.68) 0%, rgba(12,52,32,.3) 55%, rgba(12,52,32,.06) 100%);
+}
+
+/* Brighter business-card covers */
+.biz-cover.t0 { background: radial-gradient(120% 140% at 85% -10%, rgba(198,243,108,.55), transparent 58%), linear-gradient(160deg, #2f8f5a, #1c6b40); }
+.biz-cover.t1 { background: radial-gradient(120% 140% at 85% -10%, rgba(198,243,108,.5), transparent 58%), linear-gradient(160deg, #35a06a, #1f7a48); }
+.biz-cover.t2 { background: radial-gradient(120% 140% at 85% -10%, rgba(255,214,102,.5), transparent 58%), linear-gradient(160deg, #2c8a62, #1b6a4a); }
+.biz-cover.t3 { background: radial-gradient(120% 140% at 85% -10%, rgba(220,245,228,.45), transparent 58%), linear-gradient(160deg, #3a9a6a, #247a52); }
+
+/* Keep the add-listing form inside its card */
+.form.inline { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
+.form.inline > *, .form.inline label { min-width: 0; }
+.form.inline input, .form.inline select { width: 100%; min-width: 0; }
+@media (max-width: 620px) { .form.inline { grid-template-columns: minmax(0, 1fr); } }
+
+/* ── Login hero slideshow (cross-fade) ───────────────────────────────── */
+.hero-blend > .hero-slides { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; }
+.hero-slides .slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease; overflow: hidden; }
+.hero-slides .slide.on { opacity: 1; }
+/* blurred copy of the photo fills the space around the full, uncropped image */
+.slide-bg { position: absolute; inset: -12%; background-size: cover; background-position: center; filter: blur(28px) brightness(.85) saturate(1.1); }
+/* start at the photo's full size (nothing cropped), then ease in slowly */
+.slide-img { position: absolute; left: 0; top: 50%; width: 100%; height: auto; display: block;
+  transform: translateY(-50%) scale(1); transform-origin: 50% 50%; transition: transform 0s linear 1.4s; }
+.slide.on .slide-img { transform: translateY(-50%) scale(1.5); transition: transform 11s linear; }
+/* the tall composite already fits the banner: gentle zoom only */
+.slide.tall .slide-img { top: 0; height: 100%; object-fit: cover; object-position: center bottom; transform: scale(1); }
+.slide.tall.on .slide-img { transform: scale(1.08); transition: transform 11s linear; }
+.login .hero-blend::before {
+  background: linear-gradient(to bottom, rgba(12,52,32,.66) 0%, rgba(12,52,32,.44) 45%, rgba(12,52,32,.78) 100%);
+}
+.hero-blend > .slide-dots { position: absolute; top: 22px; right: 22px; z-index: 4; display: flex; gap: 8px; }
+.slide-dots .dot {
+  width: 10px; height: 10px; padding: 0; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.7); background: rgba(255,255,255,.25);
+  transition: width .3s var(--spring, ease), background .2s;
+}
+.slide-dots .dot.on { width: 26px; background: #c6f36c; border-color: #c6f36c; }
+@media (prefers-reduced-motion: reduce) { .hero-slides .slide, .slide-img { transition: none !important; } .slide.on .slide-img { transform: translateY(-50%) scale(1); } .slide.tall.on .slide-img { transform: scale(1); } }
+
+/* Logo: the supplied College Business Corner emblem (public/logo.png) on its own cream tile */
+.brand-mark { background: #edd9cf !important; box-shadow: 0 6px 18px -8px rgba(0,0,0,.45) !important; padding: 0; width: 48px; height: 48px; border-radius: 14px; display: inline-grid; place-items: center; flex: none; overflow: hidden; }
+.brand-mark img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.brand:hover .brand-mark { box-shadow: 0 10px 26px rgba(237,217,207,.35) !important; }
