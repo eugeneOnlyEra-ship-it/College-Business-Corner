@@ -1,21 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
-import { addListing, ApiError, connectPaypal, createBusiness, dollars, getDemandInsights, getPaypalStatus, ownerChat, type ChatTurn, type DemandTerm, type Proposal } from './api';
+import { addListing, ApiError, connectPaypal, createBusiness, dollars, getDemandInsights, getPaypalStatus, ownerChat, type ChatTurn, type DemandTerm, type Proposal, type StarterPack } from './api';
 import PhotoButton from './PhotoButton';
+import StarterPackCard from './StarterPackCard';
 import { RichText } from './RichText';
+import UserBubble from './UserBubble';
 
-interface Msg { role: 'user' | 'assistant'; text: string; proposals?: Proposal[] }
-type CardState = { status: 'idle' | 'working' | 'done' | 'failed'; note?: string; url?: string; created?: { id: string; title: string }[] };
+interface Msg { role: 'user' | 'assistant'; text: string; proposals?: Proposal[]; resources?: StarterPack; /** Written by the app after a confirmation, not by the owner. */ auto?: boolean }
+type CardState = { status: 'idle' | 'working' | 'done' | 'failed'; note?: string; dismissed?: boolean; url?: string; created?: { id: string; title: string }[] };
 
 const EXAMPLES = [
   "I have no idea what to sell. What do students want?",
   'I offer salon services at $15. Set it up for me.',
   'Braids 15, wash 5, snack box 3. I sell near the hostels.',
   'What do I still need to do before I can get paid with PayPal?',
+  'Give me beginner tips, books and websites for new entrepreneurs.',
 ];
+
+/** Open the starter pack straight away when the owner asked for it; otherwise it stays collapsed as an optional extra. */
+const askedForResources = (text?: string) => /\b(tips?|books?|websites?|resources?|courses?|learn|reading|advice)\b/i.test(text ?? '');
 
 const errorText = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
 
-export default function OwnerAssistant() {
+export default function OwnerAssistant({ active = true }: { active?: boolean }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -23,19 +29,35 @@ export default function OwnerAssistant() {
   const [cards, setCards] = useState<Record<string, CardState>>({});
   const [demand, setDemand] = useState<DemandTerm[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { getDemandInsights().then((d) => setDemand(d.topSearches.slice(0, 6))).catch(() => { /* optional extra */ }); }, []);
-  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [msgs, busy]);
+  // Re-read the demand chips each time the owner comes back, so searches made in Browse show up.
+  useEffect(() => { if (active) getDemandInsights().then((d) => setDemand(d.topSearches.slice(0, 6))).catch(() => { /* optional extra */ }); }, [active]);
+  useEffect(() => { if (active) endRef.current?.scrollIntoView({ block: 'end' }); }, [msgs, busy, active]);
 
-  async function send(text: string, base: Msg[] = msgs) {
+  async function send(text: string, base: Msg[] = msgs, auto = false) {
     const message = text.trim();
     if (!message || busy) return;
     const history: ChatTurn[] = base.map((m) => ({ role: m.role === 'user' ? 'user' : 'model', text: m.text }));
-    setMsgs([...base, { role: 'user', text: message }]);
+    setMsgs([...base, { role: 'user', text: message, ...(auto ? { auto: true } : {}) }]);
     setInput(''); setBusy(true); setError(null);
     try {
       const res = await ownerChat(message, history);
-      setMsgs((m) => [...m, { role: 'assistant', text: res.reply, proposals: res.proposals }]);
+      setMsgs((m) => [...m, { role: 'assistant', text: res.reply, proposals: res.proposals, resources: res.resources }]);
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+  }
+
+  // Editing an earlier message resends from there and drops what came after. That is only safe while nothing after it
+  // has been SAVED (a confirmed business, listings or PayPal step), so those messages stay as they are.
+  const lastSavedAt = msgs.reduce((hi, m, i) => {
+    const saved = (m.proposals ?? []).some((p) => {
+      const c = cards[p.id];
+      return p.type !== 'tip' && !c?.dismissed && (c?.status === 'working' || c?.status === 'done');
+    });
+    return saved ? i : hi;
+  }, -1);
+
+  function resend(i: number, text: string) {
+    if (busy) return;
+    void send(text, msgs.slice(0, i));
   }
 
   const setCard = (id: string, s: CardState) => setCards((c) => ({ ...c, [id]: s }));
@@ -45,7 +67,7 @@ export default function OwnerAssistant() {
     if (p.type === 'tip') {
       // Nothing is saved here. The owner is interested, so the assistant takes over and prepares the listing.
       setCard(p.id, { status: 'done', note: 'Great. The assistant is preparing it for you.' });
-      void send(`I'm interested in adding ${p.data.term} to ${p.businessName}. Please set it up.`, msgs);
+      void send(`I'm interested in adding ${p.data.term} to ${p.businessName}. Please set it up.`, msgs, true);
       return;
     }
     setCard(p.id, { status: 'working' });
@@ -56,7 +78,7 @@ export default function OwnerAssistant() {
         setCard(p.id, { status: 'done', note: 'Business created.' });
         // Let the assistant carry on (it will read the new business itself).
         const after = msgs;
-        void send('I confirmed the business. Please continue with my listings.', after);
+        void send('I confirmed the business. Please continue with my listings.', after, true);
         return;
       }
       if (p.type === 'listings') {
@@ -64,7 +86,7 @@ export default function OwnerAssistant() {
         for (const l of p.data.listings) { const r = await addListing(p.businessId, l); created.push({ id: r.id, title: l.title }); saved += 1; }
         setCard(p.id, { status: 'done', note: `${saved} listing${saved === 1 ? '' : 's'} added. You can add a photo to each one below.`, created });
         // Next stage: let the assistant check PayPal and offer to connect it.
-        void send('I confirmed the listings. Please check my PayPal setup.', msgs);
+        void send('I confirmed the listings. Please check my PayPal setup.', msgs, true);
         return;
       }
       const r = await connectPaypal(p.businessId);
@@ -106,13 +128,18 @@ export default function OwnerAssistant() {
               )}
             </div>
           )}
-          {msgs.map((m, i) => (
-            <div key={i} className={`bubble ${m.role}`}>
-              {m.role === 'assistant' ? <RichText text={m.text} /> : <p>{m.text}</p>}
+          {msgs.map((m, i) => m.role === 'user' ? (
+            <UserBubble key={`${i}:${m.text}`} text={m.text} busy={busy} plain={m.auto}
+              lockedReason={i < lastSavedAt ? 'Something you confirmed after this message was already saved, so it can’t be changed.' : undefined}
+              onResend={(t) => resend(i, t)} />
+          ) : (
+            <div key={i} className="bubble assistant">
+              <RichText text={m.text} />
               {[...(m.proposals ?? [])].sort((a, b) => Number(a.type === 'tip') - Number(b.type === 'tip')).map((p) => (
                 <ProposalCard key={p.id} p={p} state={cards[p.id] ?? { status: 'idle' }}
-                  onConfirm={() => confirm(p)} onDismiss={() => setCard(p.id, { status: 'done', note: 'Dismissed.' })} />
+                  onConfirm={() => confirm(p)} onDismiss={() => setCard(p.id, { status: 'done', note: 'Dismissed.', dismissed: true })} />
               ))}
+              {m.resources && <StarterPackCard pack={m.resources} defaultOpen={askedForResources(msgs[i - 1]?.role === 'user' ? msgs[i - 1].text : '')} />}
             </div>
           ))}
           {busy && <div className="bubble assistant working">Working on it…</div>}

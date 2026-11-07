@@ -9,7 +9,7 @@ const STOP = new Set([
   'some', 'any', 'can', 'could', 'would', 'should', 'please', 'need', 'needs', 'want', 'wants', 'looking', 'look',
   'find', 'get', 'buy', 'order', 'book', 'show', 'give', 'any', 'cheap', 'cheapest', 'best', 'good', 'nice', 'affordable',
   'price', 'prices', 'cost', 'how', 'much', 'who', 'where', 'what', 'are', 'there', 'you', 'your', 'our', 'campus',
-  'student', 'students', 'service', 'services', 'item', 'items', 'thing', 'things', 'today', 'tomorrow', 'now', 'dollar', 'dollars',
+  'student', 'students', 'service', 'services', 'sell', 'sells', 'selling', 'have', 'has', 'offer', 'offers', 'does', 'there', 'item', 'items', 'thing', 'things', 'today', 'tomorrow', 'now', 'dollar', 'dollars',
 ]);
 
 const singular = (w: string) => (w.length > 4 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w);

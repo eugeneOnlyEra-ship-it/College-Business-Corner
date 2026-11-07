@@ -15,9 +15,14 @@ import { errorStatus, isNetworkError, runAgentLoop } from './agent.loop.js';
 import { SYSTEM_INSTRUCTION } from './agent.prompt.js';
 import { AGENT_TOOLS } from './agent.tools.js';
 
+type ListingView = Awaited<ReturnType<ListingsService['search']>>[number];
+
 const MAX_MESSAGE_CHARS = 1000;
 const MAX_HISTORY_TURNS = 10;
 const MAX_HISTORY_CHARS = 2000;
+// Cards shown in the chat: the best few per search, and never more than this in total.
+const CARDS_PER_SEARCH = 4;
+const MAX_CARDS = 12;
 
 @Injectable()
 export class AgentService {
@@ -40,7 +45,7 @@ export class AgentService {
     return this.client;
   }
 
-  async chat(dto: AgentChatDto) {
+  async chat(dto: AgentChatDto, buyerEmail?: string) {
     const message = typeof dto?.message === 'string' ? dto.message.trim() : '';
     if (!message) throw new BadRequestException('message is required');
     if (message.length > MAX_MESSAGE_CHARS) {
@@ -54,13 +59,18 @@ export class AgentService {
     contents.push({ role: 'user', parts: [{ text: message }] });
 
     let checkout: unknown = null;
+    // Everything the searches found (for cards on screen). The model only sees a trimmed copy.
+    const found = new Map<string, ListingView>();
+    const shown: string[] = [];
 
     const executeTool = async (name: string, args: any): Promise<unknown> => {
       if (name === 'search_listings') {
         const q = typeof args?.q === 'string' ? args.q : '';
         const max = Number.isFinite(args?.maxPriceCents) ? Math.round(args.maxPriceCents) : undefined;
-        const found = await this.listings.search({ q, maxPriceCents: max });
-        return found.slice(0, 8).map((l) => ({
+        const results = (await this.listings.search({ q, maxPriceCents: max })).slice(0, 8);
+        for (const l of results) found.set(l.id, l);
+        for (const l of results.slice(0, CARDS_PER_SEARCH)) if (!shown.includes(l.id)) shown.push(l.id);
+        return results.map((l) => ({
           id: l.id,
           title: l.title,
           description: l.description.slice(0, 120),
@@ -81,7 +91,7 @@ export class AgentService {
         const budgetCents = Number.isFinite(args?.budgetCents) ? Math.round(args.budgetCents) : undefined;
         const request = { items, budgetCents };
         try {
-          const result = await this.orders.createOrder({ items, budgetCents }, 'agent');
+          const result = await this.orders.createOrder({ items, budgetCents, buyerEmail }, 'agent');
           checkout = { ...result, request };
           return result;
         } catch (err) {
@@ -113,9 +123,16 @@ export class AgentService {
           }
         },
       });
+      // The listings to show as cards. Whatever ended up in the cart is always included, even if it ranked low.
+      const selectedIds: string[] = Array.isArray((checkout as any)?.request?.items)
+        ? (checkout as any).request.items.map((i: any) => i?.listingId).filter((id: unknown): id is string => typeof id === 'string' && found.has(id))
+        : [];
+      const cardIds = [...shown, ...selectedIds.filter((id) => !shown.includes(id))].slice(0, MAX_CARDS);
       return {
         reply: result.reply,
         checkout,
+        listings: cardIds.map((id) => found.get(id)!),
+        selectedIds: selectedIds.filter((id) => cardIds.includes(id)),
         steps: result.steps.map((s) => ({
           tool: s.tool,
           args: s.args,

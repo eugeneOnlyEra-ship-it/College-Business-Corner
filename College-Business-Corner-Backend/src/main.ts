@@ -3,6 +3,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'node:path';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
+import { corsOrigin } from './cors.js';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -12,8 +13,9 @@ async function bootstrap() {
   // Serve uploaded listing photos at /uploads/listings/<id>.<ext>.
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
-  // Let the Vite frontend (default http://localhost:5173) call this API from the browser.
-  app.enableCors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:5173' });
+  // Let the frontend call this API from the browser: FRONTEND_URL, plus any localhost port while developing
+  // (Vite picks the next free port when 5173 is taken).
+  app.enableCors({ origin: corsOrigin(process.env.FRONTEND_URL, process.env.NODE_ENV) });
 
   // Swagger UI at http://localhost:3000/docs : lets you test endpoints in the browser.
   const config = new DocumentBuilder()

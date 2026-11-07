@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ListingsService } from './listings.service.js';
 
@@ -13,5 +13,11 @@ export class ListingsController {
   search(@Query('q') q?: string, @Query('maxPriceCents') maxPriceCents?: string) {
     const max = maxPriceCents !== undefined ? Number.parseInt(maxPriceCents, 10) : undefined;
     return this.listings.search({ q, maxPriceCents: Number.isNaN(max) ? undefined : max });
+  }
+
+  /** One business with all of its active listings (public, read-only). */
+  @Get('businesses/:id')
+  business(@Param('id') id: string) {
+    return this.listings.businessProfile(id);
   }
 }

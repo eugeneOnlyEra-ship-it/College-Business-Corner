@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { OwnerGuard } from '../auth/auth.guard.js';
 import { InterestsService } from './interests.service.js';
+import { STARTER_PACK } from './starter-pack.js';
 
 @ApiTags('insights')
 @ApiBearerAuth()
@@ -16,5 +17,11 @@ export class InsightsController {
   @ApiQuery({ name: 'limit', required: false, description: 'How many keywords (1 to 20, default 10)' })
   demand(@Query('days') days?: string, @Query('limit') limit?: string) {
     return this.interests.insights(Number.parseInt(days ?? '', 10) || undefined, Number.parseInt(limit ?? '', 10) || undefined);
+  }
+
+  /** Checked beginner tips, books and websites for new entrepreneurs (static, the same list the assistant uses). */
+  @Get('starter-pack')
+  starterPack() {
+    return STARTER_PACK;
   }
 }

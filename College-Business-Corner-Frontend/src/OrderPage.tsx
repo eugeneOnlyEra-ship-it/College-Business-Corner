@@ -73,6 +73,7 @@ export default function OrderPage({ id }: { id: string }) {
         <p className="fine">Each business is paid directly by PayPal. The platform fee is split out at the moment of payment.</p>
 
         <a className="primary" href="#/">Start another order</a>
+        <a className="chip" href="#/orders">My orders</a>
       </article>
     </div>
   );

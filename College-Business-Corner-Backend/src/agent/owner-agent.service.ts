@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenAI } from '@google/genai';
 import { BusinessesService } from '../businesses/businesses.service.js';
 import { InterestsService } from '../insights/interests.service.js';
+import { STARTER_PACK, starterPackForModel } from '../insights/starter-pack.js';
 import type { AgentChatDto } from './agent.dto.js';
 import { errorStatus, isNetworkError, runAgentLoop } from './agent.loop.js';
 import { ownerInstruction } from './owner-agent.prompt.js';
@@ -49,6 +50,7 @@ export class OwnerAgentService {
     contents.push({ role: 'user', parts: [{ text: message }] });
 
     const proposals: Proposal[] = [];
+    let showResources = false;
     // The owner is fixed by the sign-in token, never by anything the model says.
     const execute = createOwnerToolExecutor(
       {
@@ -68,6 +70,10 @@ export class OwnerAgentService {
         contents,
         executeTool: async (name, args) => {
           try {
+            if (name === 'get_starter_resources') {
+              showResources = true; // the card is built from the checked list, never from the model's words
+              return starterPackForModel();
+            }
             return await execute(name, args);
           } catch (err) {
             this.logger.error(`Owner tool ${name} failed: ${(err as Error)?.message}`);
@@ -78,6 +84,7 @@ export class OwnerAgentService {
       return {
         reply: result.reply,
         proposals,
+        resources: showResources ? STARTER_PACK : undefined,
         steps: result.steps.map((s) => ({ tool: s.tool, summary: summarise(s.tool, s.result) })),
       };
     } catch (err: any) {
@@ -95,6 +102,7 @@ export class OwnerAgentService {
 function summarise(tool: string, result: unknown): string {
   const r = result as any;
   if (tool === 'get_my_businesses' && Array.isArray(r)) return `${r.length} business(es) read`;
+  if (tool === 'get_starter_resources') return 'starter pack shown';
   if (tool === 'get_demand_insights') return `${r?.topSearches?.length ?? 0} popular searches read`;
   if (tool.startsWith('propose_')) return r?.accepted ? 'prepared for confirmation' : 'needs changes';
   return r?.error ? 'error' : 'ok';

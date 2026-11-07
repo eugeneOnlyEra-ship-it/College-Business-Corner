@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { imageUrlFor } from '../businesses/listing-images.js';
 import { InterestsService } from '../insights/interests.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -52,9 +52,40 @@ export class ListingsService {
         id: l.business.id,
         name: l.business.name,
         category: l.business.category,
+        description: l.business.description,
         // Only READY businesses can receive PayPal payments.
         canReceivePayments: l.business.onboarding === 'READY' && !!l.business.paypalMerchantId,
       },
     }));
+  }
+
+  /**
+   * Public profile of one business: what a shopper needs to decide, and nothing private.
+   * Never includes the owner's email, PayPal ids or tracking ids.
+   */
+  async businessProfile(id: string) {
+    const business = await this.prisma.business.findUnique({
+      where: { id },
+      include: { listings: { where: { active: true }, orderBy: { priceCents: 'asc' } } },
+    });
+    if (!business) throw new NotFoundException('That business was not found.');
+    return {
+      id: business.id,
+      name: business.name,
+      category: business.category,
+      description: business.description,
+      memberSince: business.createdAt.toISOString().slice(0, 10),
+      canReceivePayments: business.onboarding === 'READY' && !!business.paypalMerchantId,
+      listings: business.listings.map((l) => ({
+        id: l.id,
+        title: l.title,
+        description: l.description,
+        kind: l.kind,
+        priceCents: l.priceCents,
+        currency: l.currency,
+        unit: l.unit,
+        imageUrl: imageUrlFor(l.id),
+      })),
+    };
   }
 }

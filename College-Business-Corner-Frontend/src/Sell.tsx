@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
-  addListing, ApiError, connectPaypal, createBusiness, dollars, getMyBusinesses, getPaypalStatus,
-  type OwnedBusiness, type PaypalStatus,
+  addListing, ApiError, connectPaypal, createBusiness, dollars, getMyBusinesses, getPaypalStatus, getSales, updateBusiness, updateListing,
+  type BusinessSales, type OwnedBusiness, type PaypalStatus,
 } from './api';
 import PhotoButton from './PhotoButton';
+import StarterPackCard from './StarterPackCard';
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
 
@@ -34,6 +35,7 @@ export default function Sell({ email }: { email: string }) {
           <a className="primary" href="#/assistant">Open the assistant</a>
         </div>
       )}
+      <StarterPackCard />
       <NewBusiness onCreated={load} />
     </div>
   );
@@ -114,6 +116,8 @@ function BusinessPanel({ business, onChanged }: { business: OwnedBusiness; onCha
         <span className={state === 'READY' ? 'badge ok' : 'badge off'}>{state === 'READY' ? 'Ready for orders' : 'Not taking payments yet'}</span>
       </div>
       <p className="fine cap">{business.category}</p>
+      <BusinessEdit business={business} onSaved={onChanged} />
+      <SalesPanel businessId={business.id} />
 
       <ol className="steps">
         <li className="done">Business registered</li>
@@ -147,13 +151,7 @@ function BusinessPanel({ business, onChanged }: { business: OwnedBusiness; onCha
       <h3>Listings</h3>
       {business.listings.length === 0 ? <p className="fine">Nothing listed yet. Add what you sell below, or <a href="#/assistant">tell the assistant</a>.</p> : (
         <ul className="lines">
-          {business.listings.map((l) => (
-            <li key={l.id}>
-              <span className="grow">{l.title}<small>{l.unit ?? l.kind.toLowerCase()}</small></span>
-              <PhotoButton businessId={business.id} listingId={l.id} imageUrl={l.imageUrl} onUploaded={onChanged} />
-              <span>{dollars(l.priceCents)}</span>
-            </li>
-          ))}
+          {business.listings.map((l) => <ListingRow key={l.id} businessId={business.id} listing={l} onChanged={onChanged} />)}
         </ul>
       )}
       <NewListing businessId={business.id} onAdded={onChanged} />
@@ -205,5 +203,176 @@ function NewListing({ businessId, onAdded }: { businessId: string; onAdded: () =
       {error && <div className="error wide-field" role="alert">{error}</div>}
       <button className="primary" disabled={busy}>{busy ? 'Adding…' : 'Add listing'}</button>
     </form>
+  );
+}
+
+
+type OwnedListing = OwnedBusiness['listings'][number];
+
+/** One listing: shows it, and lets the owner fix it, change the price, or hide it without deleting it. */
+function ListingRow({ businessId, listing: l, onChanged }: { businessId: string; listing: OwnedListing; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(l.title);
+  const [price, setPrice] = useState((l.priceCents / 100).toFixed(2));
+  const [unit, setUnit] = useState(l.unit ?? '');
+  const [description, setDescription] = useState(l.description ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    const priceCents = Math.round(parseFloat(price) * 100);
+    if (!Number.isFinite(priceCents)) { setError('Enter the price in dollars, for example 12.50.'); return; }
+    setBusy(true); setError(null);
+    try {
+      await updateListing(businessId, l.id, { title, priceCents, unit, description });
+      setEditing(false); onChanged();
+    } catch (err) { setError(msg(err)); } finally { setBusy(false); }
+  }
+
+  async function toggle() {
+    setBusy(true); setError(null);
+    try { await updateListing(businessId, l.id, { active: !l.active }); onChanged(); }
+    catch (err) { setError(msg(err)); } finally { setBusy(false); }
+  }
+
+  if (editing) {
+    return (
+      <li className="edit-row">
+        <form className="form inline" onSubmit={save}>
+          <label>What you sell
+            <input required minLength={2} maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} />
+          </label>
+          <label>Price in dollars
+            <input required inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
+          </label>
+          <label>Per what (optional)
+            <input maxLength={30} value={unit} onChange={(e) => setUnit(e.target.value)} />
+          </label>
+          <label className="wide-field">Details (optional)
+            <input maxLength={200} value={description} onChange={(e) => setDescription(e.target.value)} />
+          </label>
+          {error && <div className="error wide-field" role="alert">{error}</div>}
+          <div className="row-actions wide-field">
+            <button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
+            <button type="button" className="chip" onClick={() => { setEditing(false); setError(null); }}>Cancel</button>
+          </div>
+        </form>
+      </li>
+    );
+  }
+
+  return (
+    <li className={l.active ? undefined : 'is-hidden'}>
+      <span className="grow">
+        {l.title}{!l.active && <span className="badge off hidden-badge">Hidden</span>}
+        <small>{l.unit ?? l.kind.toLowerCase()}</small>
+        {error && <small className="row-error" role="alert">{error}</small>}
+      </span>
+      <PhotoButton businessId={businessId} listingId={l.id} imageUrl={l.imageUrl} onUploaded={onChanged} />
+      <span className="row-actions">
+        <button className="chip" onClick={() => setEditing(true)} disabled={busy}>Edit</button>
+        <button className="chip" onClick={toggle} disabled={busy}>{l.active ? 'Hide' : 'Show'}</button>
+      </span>
+      <span>{dollars(l.priceCents)}</span>
+    </li>
+  );
+}
+
+/** Fix the business name, category or description (the description is what shoppers read on the business page). */
+function BusinessEdit({ business, onSaved }: { business: OwnedBusiness; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(business.name);
+  const [category, setCategory] = useState(business.category);
+  const [description, setDescription] = useState(business.description);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true); setError(null);
+    try { await updateBusiness(business.id, { name, category, description }); setOpen(false); onSaved(); }
+    catch (err) { setError(msg(err)); } finally { setBusy(false); }
+  }
+
+  if (!open) {
+    return (
+      <>
+        {business.description && <p className="biz-about">{business.description}</p>}
+        <button className="chip" onClick={() => setOpen(true)}>Edit business details</button>
+      </>
+    );
+  }
+  return (
+    <form className="form inline" onSubmit={save}>
+      <label>Business name
+        <input required minLength={2} maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
+      </label>
+      <label>Category
+        <input required minLength={2} maxLength={30} value={category} onChange={(e) => setCategory(e.target.value)} />
+      </label>
+      <label className="wide-field">What shoppers will read about you
+        <input maxLength={200} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Where you are, when you are open, what makes you different" />
+      </label>
+      {error && <div className="error wide-field" role="alert">{error}</div>}
+      <div className="row-actions wide-field">
+        <button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+        <button type="button" className="chip" onClick={() => { setOpen(false); setError(null); }}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+
+/** What this business has sold. Only paid orders count. The buyer is shown by name only, never by email. */
+function SalesPanel({ businessId }: { businessId: string }) {
+  const [sales, setSales] = useState<BusinessSales | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true); setError(null);
+    getSales(businessId)
+      .then(setSales)
+      .catch((e) => setError(msg(e)))
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [businessId]);
+
+  const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+  return (
+    <div className="sales">
+      <div className="sales-head">
+        <h3>Sales</h3>
+        <button className="chip" onClick={load} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+      </div>
+      {error && <div className="error" role="alert">{error}</div>}
+      {sales && (
+        <>
+          <dl className="sales-stats">
+            <div><dt>Paid orders</dt><dd>{sales.summary.orders}</dd></div>
+            <div><dt>Customers paid</dt><dd>{dollars(sales.summary.grossCents)}</dd></div>
+            <div><dt>Platform fee</dt><dd>−{dollars(sales.summary.platformFeeCents)}</dd></div>
+            <div><dt>You received</dt><dd className="sales-net">{dollars(sales.summary.netCents)}</dd></div>
+          </dl>
+          {sales.recent.length === 0 ? (
+            <p className="fine">No paid orders yet. When a student pays through PayPal, the sale shows up here.</p>
+          ) : (
+            <ul className="lines sales-list">
+              {sales.recent.map((r) => (
+                <li key={r.orderId}>
+                  <span className="grow">
+                    {r.items.map((i) => `${i.quantity} × ${i.title}`).join(', ')}
+                    <small>{r.buyerName} · {when(r.date)}</small>
+                  </span>
+                  <span>{r.netCents !== null ? dollars(r.netCents) : dollars(r.grossCents)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
   );
 }

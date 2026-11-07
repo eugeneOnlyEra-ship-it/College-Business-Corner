@@ -43,6 +43,7 @@ export class OrdersService {
       confirmed: dto.confirmed,
       actor,
       action: 'checkout.request',
+      buyerEmail: buyer.email,
     });
 
     if (verdict.decision === 'BLOCK') {
@@ -142,6 +143,25 @@ export class OrdersService {
     }
   }
 
+  /** The signed-in buyer's own orders, newest first. */
+  async listForBuyer(email: string) {
+    const buyer = await this.prisma.user.findUnique({ where: { email } });
+    if (!buyer) return [];
+    const orders = await this.prisma.order.findMany({
+      where: { buyerId: buyer.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: { items: { include: { listing: { select: { title: true } }, business: { select: { name: true } } } } },
+    });
+    return orders.map((o) => ({
+      id: o.id,
+      status: o.status,
+      totalCents: o.totalCents,
+      createdAt: o.createdAt.toISOString(),
+      items: o.items.map((i) => ({ title: i.listing.title, quantity: i.quantity, business: i.business.name })),
+    }));
+  }
+
   /** Called when PayPal redirects the buyer back. Captures once; safe to call again. */
   async capture(paypalOrderId: string) {
     if (!paypalOrderId) throw new BadRequestException('token is required');
@@ -210,7 +230,7 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: {
-        buyer: { select: { name: true, email: true } },
+        buyer: { select: { name: true } }, // never the email: a receipt link must not reveal who paid
         items: { include: { listing: { select: { title: true } }, business: { select: { name: true } } } },
         payouts: { include: { business: { select: { name: true } } } },
       },

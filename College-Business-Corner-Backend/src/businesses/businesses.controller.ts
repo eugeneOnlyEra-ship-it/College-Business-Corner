@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { OwnerGuard, type AuthedRequest } from '../auth/auth.guard.js';
-import { CreateBusinessDto, CreateListingDto, ListingImageDto } from './businesses.dto.js';
+import { CreateBusinessDto, CreateListingDto, ListingImageDto, UpdateBusinessDto, UpdateListingDto } from './businesses.dto.js';
 import { BusinessesService } from './businesses.service.js';
 
 /** Every route needs a business-owner session. The owner is taken from the token, never from the request body. */
@@ -22,6 +22,16 @@ export class BusinessesController {
     return this.businesses.listForOwner(req.user.email);
   }
 
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() body: UpdateBusinessDto, @Req() req: AuthedRequest) {
+    return this.businesses.updateBusiness(id, { ...body, ownerEmail: req.user.email });
+  }
+
+  @Patch(':id/listings/:listingId')
+  updateListing(@Param('id') id: string, @Param('listingId') listingId: string, @Body() body: UpdateListingDto, @Req() req: AuthedRequest) {
+    return this.businesses.updateListing(id, listingId, { ...body, ownerEmail: req.user.email });
+  }
+
   @Post(':id/listings')
   addListing(@Param('id') id: string, @Body() body: CreateListingDto, @Req() req: AuthedRequest) {
     return this.businesses.addListing(id, { ...body, ownerEmail: req.user.email });
@@ -30,6 +40,11 @@ export class BusinessesController {
   @Post(':id/listings/:listingId/image')
   setImage(@Param('id') id: string, @Param('listingId') listingId: string, @Body() body: ListingImageDto, @Req() req: AuthedRequest) {
     return this.businesses.setListingImage(id, listingId, { ...body, ownerEmail: req.user.email });
+  }
+
+  @Get(':id/sales')
+  sales(@Param('id') id: string, @Req() req: AuthedRequest) {
+    return this.businesses.sales(id, req.user.email);
   }
 
   @Post(':id/paypal/connect')

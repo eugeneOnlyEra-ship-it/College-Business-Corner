@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { AuthGuard, OptionalAuthGuard, type AuthedRequest, type MaybeAuthedRequest } from '../auth/auth.guard.js';
 import { CreateStoreOrderDto } from './orders.dto.js';
 import { OrdersService } from './orders.service.js';
 
@@ -14,9 +15,20 @@ export class OrdersController {
   ) {}
 
   // Body: listing ids + quantities only. Prices and fees are decided by the server.
+  // A signed-in buyer always buys as themselves (any buyerEmail in the body is ignored). Without sign-in
+  // (Swagger testing) the demo student is used.
   @Post()
-  create(@Body() body: CreateStoreOrderDto) {
-    return this.orders.createOrder(body);
+  @UseGuards(OptionalAuthGuard)
+  create(@Body() body: CreateStoreOrderDto, @Req() req: MaybeAuthedRequest) {
+    return this.orders.createOrder(req.user ? { ...body, buyerEmail: req.user.email } : body);
+  }
+
+  // The signed-in buyer's own orders.
+  @Get('mine')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  mine(@Req() req: AuthedRequest) {
+    return this.orders.listForBuyer(req.user.email);
   }
 
   // PayPal sends the buyer here after approval and we capture the payment.

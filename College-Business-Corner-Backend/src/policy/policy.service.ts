@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { effectiveLimits, MIN_LIMIT_CENTS, type PersonalLimits } from './limits.js';
 import { evaluatePolicy, type PolicyLimits, type PolicyVerdict } from './policy.engine.js';
 
 export type Actor = 'buyer' | 'agent' | 'system';
@@ -14,6 +15,8 @@ export interface PolicyRequest {
   confirmed?: boolean;
   actor?: Actor;
   action?: string;
+  /** Whose personal limits apply. Without it the system limits are used. */
+  buyerEmail?: string;
 }
 
 export interface PolicyResult extends PolicyVerdict {
@@ -55,7 +58,7 @@ export class PolicyService {
       req.items,
       listings,
       { budgetCents: req.budgetCents, quotedTotalCents: req.quotedTotalCents },
-      this.limits,
+      await this.limitsFor(req.buyerEmail),
     );
 
     // Only an ASK can be confirmed by the buyer. BLOCK is final.
@@ -66,6 +69,7 @@ export class PolicyService {
     const audit = await this.prisma.auditLog.create({
       data: {
         actor: req.actor && ACTORS.includes(req.actor) ? req.actor : 'buyer',
+        buyerEmail: req.buyerEmail ?? null,
         action: req.action ?? 'checkout.request',
         decision,
         reason: confirmedByBuyer ? `Buyer confirmed. ${summary}` : summary,
@@ -83,9 +87,52 @@ export class PolicyService {
     return { ...verdict, decision, auditId: audit.id, confirmedByBuyer };
   }
 
-  recentAudit(orderId?: string) {
+  /** The limits that apply to this buyer: the system's, made stricter by the buyer's own settings. */
+  async limitsFor(buyerEmail?: string): Promise<PolicyLimits> {
+    if (!buyerEmail) return this.limits;
+    const user = await this.prisma.user.findUnique({ where: { email: buyerEmail }, select: { maxOrderCents: true, confirmAboveCents: true } });
+    return effectiveLimits(this.limits, user);
+  }
+
+  /** What the buyer has set, what is actually in force, and the system ceiling. */
+  async getLimits(buyerEmail: string) {
+    const user = await this.prisma.user.findUnique({ where: { email: buyerEmail }, select: { maxOrderCents: true, confirmAboveCents: true } });
+    const personal: PersonalLimits = { maxOrderCents: user?.maxOrderCents ?? null, confirmAboveCents: user?.confirmAboveCents ?? null };
+    const eff = effectiveLimits(this.limits, personal);
+    return {
+      maxOrderCents: personal.maxOrderCents,
+      confirmAboveCents: personal.confirmAboveCents,
+      effective: { maxOrderCents: eff.hardCapCents, confirmAboveCents: eff.confirmAboveCents },
+      system: { maxOrderCents: this.limits.hardCapCents, confirmAboveCents: this.limits.confirmAboveCents },
+    };
+  }
+
+  /** Replaces both personal limits. null clears one (back to the system default). */
+  async setLimits(buyerEmail: string, body: { maxOrderCents?: unknown; confirmAboveCents?: unknown }) {
+    const ceiling = this.limits.hardCapCents;
+    const check = (raw: unknown, label: string): number | null => {
+      if (raw === undefined || raw === null || raw === '') return null;
+      if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < MIN_LIMIT_CENTS || raw > ceiling) {
+        throw new BadRequestException(`${label} must be between $${(MIN_LIMIT_CENTS / 100).toFixed(2)} and $${(ceiling / 100).toFixed(2)}.`);
+      }
+      return raw;
+    };
+    const maxOrderCents = check(body?.maxOrderCents, 'Your maximum order');
+    const confirmAboveCents = check(body?.confirmAboveCents, 'Your "ask me first" amount');
+    if (maxOrderCents !== null && confirmAboveCents !== null && confirmAboveCents > maxOrderCents) {
+      throw new BadRequestException('"Ask me first" cannot be higher than your maximum order.');
+    }
+    const user = await this.prisma.user.findUnique({ where: { email: buyerEmail } });
+    if (!user) throw new BadRequestException('Please sign in again.');
+    await this.prisma.user.update({ where: { id: user.id }, data: { maxOrderCents, confirmAboveCents } });
+    return this.getLimits(buyerEmail);
+  }
+
+  /** A buyer's own decisions only, newest first. There is deliberately no way to read anyone else's. */
+  recentAudit(buyerEmail: string, orderId?: string) {
     return this.prisma.auditLog.findMany({
-      where: orderId ? { orderId } : {},
+      where: { buyerEmail, ...(orderId ? { orderId } : {}) },
+      omit: { buyerEmail: true },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });

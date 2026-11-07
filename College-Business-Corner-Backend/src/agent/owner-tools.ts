@@ -31,6 +31,12 @@ export const OWNER_TOOLS = [
         },
       },
       {
+        name: 'get_starter_resources',
+        description:
+          'Beginner tips, books and websites for new student entrepreneurs, from a checked list. Call it when the owner asks for tips, books, websites, resources or how to get started, says they are new to business, or says yes to your offer of beginner resources. The app shows the full list with links in a card, so just mention one or two highlights.',
+        parametersJsonSchema: { type: 'object', properties: {} },
+      },
+      {
         name: 'propose_business',
         description: 'Propose registering a new business. The owner must confirm before it exists.',
         parametersJsonSchema: {

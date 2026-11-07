@@ -34,8 +34,8 @@ export default function SafetyLog() {
     <div className="page wide-page">
       <h1 className="page-title">Safety log</h1>
       <p className="fine log-intro">
-        Every payment request, from you or from the assistant, is checked against fixed rules before PayPal is contacted.
-        Each decision is recorded here.
+        Every payment request, from you or from the assistant, is checked against your safety rules (the campus defaults, or
+        the stricter limits you set under My limits) before PayPal is contacted. Each decision is recorded here, and only you can see this list.
       </p>
       <div className="filters">
         <div className="chips" role="group" aria-label="Decision">

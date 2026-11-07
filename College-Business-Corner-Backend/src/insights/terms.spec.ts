@@ -6,6 +6,9 @@ describe('extractTerms', () => {
     expect(extractTerms('cheap haircut near the hostel')).toEqual(['haircut', 'hostel']);
     expect(extractTerms('I need braids and wash under $10')).toEqual(['braid', 'wash']);
   });
+  it('does not count verbs like sell/offer as products', () => {
+    expect(extractTerms('Do you sell phone chargers?')).toEqual(['phone', 'charger']);
+  });
   it('treats plurals as one interest', () => {
     expect(extractTerms('Snacks')).toEqual(extractTerms('snack'));
   });

@@ -42,6 +42,10 @@ model User {
   createdAt  DateTime   @default(now())
   businesses Business[]
   orders     Order[]
+
+  // Buyer's own spending limits (null = use the system default). They can only be stricter than the system limits.
+  maxOrderCents     Int?
+  confirmAboveCents Int?
 }
 
 model Business {
@@ -143,7 +147,11 @@ model AuditLog {
   order     Order?         @relation(fields: [orderId], references: [id])
   payload   String         @default("{}") // JSON text
 
+  /// Whose request this was, so each buyer only ever sees their own decisions. Null for anonymous checks.
+  buyerEmail String?
+
   @@index([orderId])
+  @@index([buyerEmail])
 }
 
 /// Anonymous demand tracking: how often each keyword was searched on each day.

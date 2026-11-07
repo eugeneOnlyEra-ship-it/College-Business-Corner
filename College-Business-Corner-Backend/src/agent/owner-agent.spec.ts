@@ -79,7 +79,7 @@ describe('owner agent end to end (fake model)', () => {
 
   it('has no tool that saves or sends anything', () => {
     const names = OWNER_TOOLS[0].functionDeclarations.map((d) => d.name);
-    expect(names.sort()).toEqual(['get_demand_insights', 'get_my_businesses', 'get_paypal_status', 'propose_business', 'propose_listings', 'propose_paypal_connect', 'propose_tip']);
+    expect(names.sort()).toEqual(['get_demand_insights', 'get_my_businesses', 'get_paypal_status', 'get_starter_resources', 'propose_business', 'propose_listings', 'propose_paypal_connect', 'propose_tip']);
   });
 
   it('collects proposals while the model works, and does not duplicate them', async () => {

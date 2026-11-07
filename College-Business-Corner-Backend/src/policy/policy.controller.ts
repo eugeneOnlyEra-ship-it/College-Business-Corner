@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { AuthGuard, type AuthedRequest } from '../auth/auth.guard.js';
 import { PolicyCheckDto } from './policy.dto.js';
 import { PolicyService } from './policy.service.js';
 
@@ -27,10 +28,14 @@ export class PolicyController {
     };
   }
 
-  // The audit trail: every allow / ask / block decision, newest first.
+  // The signed-in buyer's own audit trail: every allow / ask / block decision about their orders, newest first.
+  // Owners get an empty list: their sales are under /businesses/:id/sales, and buyers' carts are not theirs to see.
   @Get('audit')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
   @ApiQuery({ name: 'orderId', required: false })
-  audit(@Query('orderId') orderId?: string) {
-    return this.policy.recentAudit(orderId);
+  audit(@Req() req: AuthedRequest, @Query('orderId') orderId?: string) {
+    if (req.user.role !== 'BUYER') return [];
+    return this.policy.recentAudit(req.user.email, orderId);
   }
 }

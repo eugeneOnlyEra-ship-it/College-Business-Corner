@@ -18,3 +18,152 @@
   .search-row { flex-direction: column; align-items: stretch; }
   .photo { margin: 6px 0 0; }
 }
+
+/* Chats stay mounted while hidden, so a conversation survives moving to another page. */
+.kept[hidden] { display: none !important; }
+
+/* Business detail page and clickable cards in Browse */
+.biz-link { color: inherit; text-decoration: none; }
+.biz-link::after { content: ''; position: absolute; inset: 0; z-index: 1; } /* whole cover is clickable */
+.biz-link:focus-visible { outline: 3px solid var(--accent, #1d7a45); outline-offset: 4px; border-radius: 6px; }
+.biz-desc { margin: 14px 0 4px; color: var(--slate, #587060); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.biz-more { display: inline-block; margin: 6px 0 10px; font-weight: 700; color: var(--accent, #1d7a45); text-decoration: none; }
+.biz-more:hover { text-decoration: underline; }
+
+.back-link { display: inline-block; margin-bottom: 16px; font-weight: 700; color: var(--accent, #1d7a45); text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+.bizpage .biz-cover h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); margin-top: 28px; letter-spacing: -.04em; }
+.bizpage-body { padding: 20px 22px 24px; }
+.bizpage-desc { font-size: 1.05rem; line-height: 1.55; max-width: 62ch; margin-bottom: 18px; }
+.bizpage-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin: 0 0 20px; }
+.bizpage-meta dt { font-size: .76rem; text-transform: uppercase; letter-spacing: .06em; color: var(--slate, #587060); }
+.bizpage-meta dd { margin: 3px 0 0; font-weight: 700; }
+.bizpage-h { margin: 28px 0 12px; }
+.bizpage-listings { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.bizpage-listings li.card { display: flex; align-items: center; gap: 16px; padding: 14px 16px; }
+.bizpage-listings img { width: 92px; height: 92px; object-fit: cover; border-radius: 12px; flex: none; border: 1px solid var(--line); }
+.bizpage-listing-text { flex: 1; min-width: 0; }
+.bizpage-listing-text h3 { margin: 0 0 4px; }
+.bizpage-price { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.bizpage-price strong { font-size: 1.15rem; color: var(--accent, #1d7a45); }
+@media (max-width: 560px) {
+  .bizpage-listings li.card { flex-wrap: wrap; }
+  .bizpage-price { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
+}
+
+/* Seller: edit / hide listings and business details */
+.row-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.lines li.is-hidden { opacity: .6; }
+.hidden-badge { margin-left: 8px; font-size: .7rem; padding: 2px 8px; }
+.row-error { color: var(--block, #b3261e); }
+.lines li.edit-row { display: block; padding: 12px 0; }
+.biz-about { margin: 6px 0 10px; color: var(--slate, #587060); }
+
+/* My orders, My limits, seller Sales */
+.badge.warn { color: #8a5a00; background: rgba(240,170,40,.16); border: 1px solid rgba(240,170,40,.35); }
+.notice-ok { padding: 10px 14px; border-radius: 12px; color: #14663a; background: rgba(28,122,69,.1); border: 1px solid rgba(28,122,69,.25); }
+
+.order-list { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 12px; }
+.order-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; }
+.order-main { min-width: 0; }
+.order-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.order-items { margin: 0 0 4px; font-weight: 600; }
+.order-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.order-side strong { font-size: 1.15rem; color: var(--accent, #1d7a45); }
+
+.limits h1 { margin-bottom: 8px; }
+.limits .card { margin-top: 16px; }
+.limits .lines li strong { font-size: 1.1rem; color: var(--accent, #1d7a45); }
+
+.sales { margin: 18px 0 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+.sales-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sales-head h3 { margin: 0; }
+.sales-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 12px 0; }
+.sales-stats dt { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--slate, #587060); }
+.sales-stats dd { margin: 3px 0 0; font-size: 1.2rem; font-weight: 800; }
+.sales-net { color: var(--accent, #1d7a45); }
+
+@media (max-width: 560px) {
+  .order-row { flex-direction: column; align-items: stretch; }
+  .order-side { flex-direction: row; justify-content: space-between; align-items: center; }
+}
+
+/* Copy / Edit on the person's own messages */
+.bubble.user p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; opacity: 0; transition: opacity .15s; }
+.bubble.user:hover .bubble-actions, .bubble.user:focus-within .bubble-actions, .bubble-actions.show { opacity: 1; }
+@media (hover: none) { .bubble-actions { opacity: 1; } }
+.bubble-actions button { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; padding: 3px 11px; font-size: .78rem; font-weight: 600; cursor: pointer; }
+.bubble-actions button:hover:not(:disabled) { background: rgba(255,255,255,.3); }
+.bubble-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.bubble-actions button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.bubble-actions .save { background: #fff; color: #1d5a35; border-color: #fff; }
+.bubble.user.editing { width: min(92%, 560px); }
+.bubble.user.editing textarea { width: 100%; resize: vertical; border-radius: 10px; border: 1px solid rgba(255,255,255,.5); padding: 8px 10px; font: inherit; background: #fff; color: #14231a; }
+.edit-note { margin: 6px 0 0; font-size: .76rem; opacity: .85; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Listing cards inside the shopping chat.
+   The chat is white, so what the assistant found sits on a light gold tray (the sun in the logo): white cards stand off it,
+   the cart pick gets a forest-green ring and ribbon, the open card a maroon ring, and each business has its own colour.
+   Logo colours: gold #c7a47a, maroon #46201d, cream #eed9cf. */
+.assistant-turn { display: flex; flex-direction: column; gap: 10px; align-self: stretch; min-width: 0; }
+.assistant-turn > .bubble { align-self: flex-start; }
+.lcards-wrap { --tray: #c7a47a; --tray-ink: #46201d; min-width: 0; background: var(--tray); border-radius: 18px; padding: 12px 14px 4px; }
+.lcards-label { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 10px; color: var(--tray-ink); font-size: .82rem; }
+.lcards-label strong { color: var(--tray-ink); font-size: .74rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.lcards { list-style: none; display: flex; gap: 12px; overflow-x: auto; margin: 0; padding: 4px 4px 14px; scroll-snap-type: x proximity; scrollbar-color: var(--tray-ink) transparent; }
+.lcard { position: relative; flex: 0 0 204px; scroll-snap-align: start; display: flex; flex-direction: column; background: #fff; color: var(--ink, #0f1f15); border-radius: 14px; overflow: hidden; border: 3px solid transparent; transition: transform .15s, box-shadow .15s; box-shadow: 0 6px 16px -8px rgba(70,32,29,.7); }
+.lcard:hover { transform: translateY(-2px); }
+.lcard.in-cart { border-color: var(--forest-700, #1b4a2d); background: #eef6e2; }
+.lcard.open { border-color: var(--tray-ink); }
+.lcard-main { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; padding: 0 0 8px; text-align: left; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; }
+.lcard-main:focus-visible { outline: 3px solid var(--tray-ink); outline-offset: -3px; }
+.lcard-main > img, .lcard-ph { width: 100%; height: 100px; object-fit: cover; display: block; }
+.lcard-ph { display: grid; place-items: center; font-family: var(--display, inherit); font-size: 2.3rem; font-weight: 800; }
+.lcard-ph.t0 { background: linear-gradient(135deg, #1f5c36, #2f7d4d); color: #fff; }
+.lcard-ph.t1 { background: linear-gradient(135deg, #d9b98a, #f1e0c4); color: #46201d; }
+.lcard-ph.t2 { background: linear-gradient(135deg, #eed9cf, #f8efe8); color: #46201d; }
+.lcard-ph.t3 { background: linear-gradient(135deg, #46201d, #2a110f); color: #e8c48f; }
+.lcard-title { padding: 8px 12px 0; font-weight: 700; line-height: 1.25; }
+.lcard-biz, .lcard-price { padding: 0 12px; font-size: .85rem; }
+.lcard-biz { color: #4b5d51; }
+.lcard-price { font-weight: 800; color: #1c6b3b; }
+.lcard-ribbon { position: absolute; top: 8px; left: 8px; z-index: 1; padding: 3px 10px; border-radius: 999px; background: var(--forest-700, #1b4a2d); color: #fff; font-size: .72rem; font-weight: 800; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0,0,0,.3); }
+.lcard-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 12px 12px; margin-top: auto; min-height: 36px; }
+.lcard-foot .chip { background: var(--forest-700, #1b4a2d); color: #fff; border-color: var(--forest-700, #1b4a2d); font-weight: 700; }
+.lcard-foot .chip:hover:not(:disabled) { background: var(--forest-600, #2a6b40); }
+.lcard-foot .chip:disabled { opacity: .5; }
+
+.lcards-wrap .ldetail { margin: 0 0 12px; padding: 16px 18px; background: #fbf3e4; color: var(--ink, #0f1f15); border: 0; box-shadow: none; }
+.ldetail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.ldetail-head h3 { margin: 0; }
+.ldetail h4 { margin: 14px 0 6px; font-size: .78rem; text-transform: uppercase; letter-spacing: .07em; color: #6b4f00; }
+.ldetail .fine { color: #4b5d51; }
+.ldetail-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.ldetail-list li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; background: #fff; border: 1px solid #e2cfa6; border-radius: 12px; }
+.ldetail-list li.is-this { border-color: var(--forest-600, #2a6b40); background: #f6ecd0; box-shadow: inset 4px 0 0 var(--forest-600, #2a6b40); }
+.ldetail-list img { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; flex: none; }
+.ldetail-list small { display: block; color: #4b5d51; }
+.ldetail-price { font-weight: 800; color: #1c6b3b; white-space: nowrap; }
+.ldetail .chip { background: #fff; }
+.cap { text-transform: capitalize; }
+@media (max-width: 560px) { .lcard { flex-basis: 172px; } .ldetail-list li { flex-wrap: wrap; } }
+
+/* Starter pack for new entrepreneurs: a warm gold-accented card so it reads as a friendly extra, not as a proposal */
+.spack { margin: 12px 0 0; background: #fffbea; border: 1px solid #ecd58a; border-left: 6px solid var(--gold, #f2b705); border-radius: 14px; color: var(--ink, #0f1f15); }
+.spack-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; background: none; border: 0; text-align: left; color: inherit; font: inherit; cursor: pointer; border-radius: 14px; }
+.spack-head:focus-visible { outline: 3px solid var(--forest-600, #2a6b40); outline-offset: 2px; }
+.spack-head strong { display: block; font-family: var(--display, inherit); }
+.spack-head small { display: block; color: #4b5d51; }
+.spack-toggle { flex: none; padding: 4px 12px; border-radius: 999px; background: var(--forest-700, #1b4a2d); color: #fff; font-size: .8rem; font-weight: 700; }
+.spack-body { padding: 0 16px 14px; }
+.spack-body h4 { margin: 14px 0 6px; font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: #6b4f00; }
+.spack-tips { margin: 0; padding-left: 1.1rem; display: grid; gap: 6px; }
+.spack-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.spack-list li { display: flex; align-items: center; gap: 12px; padding: 9px 12px; background: #fff; border: 1px solid #ecd58a; border-radius: 12px; }
+.spack-list .why { display: block; color: #4b5d51; font-size: .9rem; margin-top: 2px; }
+.spack-list a:not(.chip) { color: #1c6b3b; text-decoration: underline; text-underline-offset: 2px; }
+.spack-list a:not(.chip):hover { color: var(--forest-800, #12301e); }
+.spack-list .chip { white-space: nowrap; text-decoration: none; }
+.spack .fine { color: #4b5d51; }

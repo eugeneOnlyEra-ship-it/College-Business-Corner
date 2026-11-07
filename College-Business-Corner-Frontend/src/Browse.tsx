@@ -89,9 +89,10 @@ export default function Browse() {
                   {info.canReceivePayments ? 'Takes PayPal' : 'Not set up for payments'}
                 </span>
               </div>
-              <h2>{info.name}</h2>
+              <h2><a className="biz-link" href={`#/business/${info.id}`}>{info.name}</a></h2>
             </div>
             <div className="biz-body">
+              {info.description && <p className="biz-desc">{info.description}</p>}
               <ul className="lines">
                 {items.map((l) => (
                   <li key={l.id}>
@@ -104,6 +105,7 @@ export default function Browse() {
                   </li>
                 ))}
               </ul>
+              <a className="biz-more" href={`#/business/${info.id}`}>View details and all listings →</a>
             </div>
           </section>
         ))}

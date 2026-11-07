@@ -7,7 +7,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { PaypalService } from '../paypal/paypal.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { CreateBusinessDto, CreateListingDto, ListingImageDto } from './businesses.dto.js';
+import type { CreateBusinessDto, CreateListingDto, ListingImageDto, UpdateBusinessDto, UpdateListingDto } from './businesses.dto.js';
 import { decodeBase64Image, imageUrlFor, MAX_IMAGE_BYTES, saveListingImage } from './listing-images.js';
 
 const MAX_BUSINESSES_PER_OWNER = 5;
@@ -89,6 +89,7 @@ export class BusinessesService {
       listings: b.listings.map((l) => ({
         id: l.id,
         title: l.title,
+        description: l.description,
         priceCents: l.priceCents,
         kind: l.kind,
         unit: l.unit,
@@ -124,6 +125,101 @@ export class BusinessesService {
     return this.prisma.listing.create({
       data: { businessId: business.id, title, description, kind, priceCents: dto.priceCents, unit },
     });
+  }
+
+  /** Changes only the fields that were sent. Hiding a listing (active: false) keeps it for the owner but removes it from search and checkout. */
+  async updateListing(id: string, listingId: string, dto: UpdateListingDto) {
+    const business = await this.getOwned(id, dto?.ownerEmail);
+    const listing = await this.prisma.listing.findFirst({ where: { id: listingId, businessId: business.id } });
+    if (!listing) throw new NotFoundException('Listing not found.');
+    const data: Record<string, unknown> = {};
+    if (dto.title !== undefined) data.title = text(dto.title, 'Title', 2, 80);
+    if (dto.description !== undefined) data.description = optionalText(dto.description, 'Description', 200);
+    if (dto.unit !== undefined) data.unit = optionalText(dto.unit, 'Unit', 30) || null;
+    if (dto.kind !== undefined) {
+      if (dto.kind !== 'PRODUCT' && dto.kind !== 'SERVICE') throw new BadRequestException('Type must be a product or a service.');
+      data.kind = dto.kind;
+    }
+    if (dto.priceCents !== undefined) {
+      if (!Number.isInteger(dto.priceCents) || dto.priceCents < 50 || dto.priceCents > 10000) {
+        throw new BadRequestException('Price must be between $0.50 and $100.00.');
+      }
+      data.priceCents = dto.priceCents;
+    }
+    if (dto.active !== undefined) {
+      if (typeof dto.active !== 'boolean') throw new BadRequestException('Active must be true or false.');
+      data.active = dto.active;
+    }
+    if (!Object.keys(data).length) throw new BadRequestException('Nothing to change.');
+    const updated = await this.prisma.listing.update({ where: { id: listing.id }, data });
+    return {
+      id: updated.id,
+      title: updated.title,
+      description: updated.description,
+      kind: updated.kind,
+      priceCents: updated.priceCents,
+      unit: updated.unit,
+      active: updated.active,
+    };
+  }
+
+  /** What this business has sold: totals and the most recent paid orders. Only paid (completed) orders count. */
+  async sales(id: string, ownerEmail: unknown) {
+    const business = await this.getOwned(id, ownerEmail);
+    const where = { businessId: business.id, order: { status: 'COMPLETED' as const } };
+    const [totals, recent] = await Promise.all([
+      this.prisma.orderPayout.aggregate({
+        where,
+        _count: { _all: true },
+        _sum: { grossCents: true, platformFeeCents: true, paypalFeeCents: true, netCents: true },
+      }),
+      this.prisma.orderPayout.findMany({
+        where,
+        orderBy: { order: { createdAt: 'desc' } },
+        take: 20,
+        include: {
+          order: {
+            select: {
+              id: true,
+              createdAt: true,
+              buyer: { select: { name: true } },
+              items: { where: { businessId: business.id }, select: { quantity: true, listing: { select: { title: true } } } },
+            },
+          },
+        },
+      }),
+    ]);
+    return {
+      summary: {
+        orders: totals._count._all,
+        grossCents: totals._sum.grossCents ?? 0,
+        platformFeeCents: totals._sum.platformFeeCents ?? 0,
+        paypalFeeCents: totals._sum.paypalFeeCents ?? 0,
+        netCents: totals._sum.netCents ?? 0,
+      },
+      recent: recent.map((p) => ({
+        orderId: p.order.id,
+        date: p.order.createdAt.toISOString(),
+        buyerName: p.order.buyer.name,
+        grossCents: p.grossCents,
+        platformFeeCents: p.platformFeeCents,
+        paypalFeeCents: p.paypalFeeCents,
+        netCents: p.netCents,
+        items: p.order.items.map((i) => ({ title: i.listing.title, quantity: i.quantity })),
+      })),
+    };
+  }
+
+  /** Lets the owner fix the name, category or description of their own business. */
+  async updateBusiness(id: string, dto: UpdateBusinessDto) {
+    const business = await this.getOwned(id, dto?.ownerEmail);
+    const data: Record<string, string> = {};
+    if (dto.name !== undefined) data.name = text(dto.name, 'Business name', 2, 60);
+    if (dto.category !== undefined) data.category = text(dto.category, 'Category', 2, 30).toLowerCase();
+    if (dto.description !== undefined) data.description = optionalText(dto.description, 'Description', 200);
+    if (!Object.keys(data).length) throw new BadRequestException('Nothing to change.');
+    const updated = await this.prisma.business.update({ where: { id: business.id }, data });
+    return { id: updated.id, name: updated.name, category: updated.category, description: updated.description };
   }
 
   /** Saves (or replaces) the photo of one of the owner's listings. */

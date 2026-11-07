@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { extractTerms } from './terms.js';
@@ -14,10 +14,22 @@ const num = (v: unknown) => Number(v ?? 0);
  * no full sentence and no time of day. Raw SQL is used so the counter is one atomic upsert.
  */
 @Injectable()
-export class InterestsService {
+export class InterestsService implements OnModuleInit {
   private readonly logger = new Logger(InterestsService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Say so loudly at startup if the table is missing, instead of silently counting nothing. */
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.prisma.$queryRaw`SELECT 1 FROM "SearchInterest" LIMIT 1`;
+    } catch (err) {
+      this.logger.error(
+        'The "SearchInterest" table is missing, so searches are NOT being counted and demand insights will be empty. ' +
+          `Apply the latest migrations: npx prisma migrate deploy (${String((err as Error)?.message ?? err).slice(0, 80)})`,
+      );
+    }
+  }
 
   /** Fire and forget: a tracking problem must never break a search. */
   record(...inputs: (string | null | undefined)[]): void {

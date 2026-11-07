@@ -18,6 +18,8 @@ cp .env.example .env   # then fill in the values (DATABASE_URL="file:./dev.db" i
 npx prisma generate    # builds the typed database client into src/generated/prisma
 npx prisma migrate dev # creates the local SQLite database (dev.db) from prisma/migrations
 npm run db:seed        # demo businesses and listings (safe to re-run)
+# After pulling new code, always bring an existing dev.db up to date (applies migrations AND regenerates the Prisma client):
+npm run db:deploy
 npm run start:dev
 ```
 Open http://localhost:3000/docs (Swagger UI) to try the endpoints.
@@ -111,3 +113,96 @@ checks the setup, saves the merchant id automatically and says what is still mis
 ## Layout
 `src/paypal/` is the ONLY place that talks to PayPal. Built: paypal, prisma, listings, orders, policy, agent, businesses. Planned modules: auth, businesses,
 orders, policy, agent, audit (see handover doc).
+
+## Business profile (public)
+`GET /listings/businesses/:id` returns one business with its active listings (name, category, description, member-since date,
+whether it can take PayPal, and each listing with price and photo). It is read-only and public like `GET /listings`, and never includes
+the owner's email or any PayPal ids. Unknown ids return 404.
+
+## Shopping assistant: cards in the chat
+`POST /agent/chat` now also returns `listings` (the real listings the assistant found: id, title, description, price, unit, photo and
+business id/name/category/PayPal status, best 4 per search, 12 at most) and `selectedIds` (which of them went into the cart). The chat
+shows them as cards: tap one to read about the business and see everything it offers, or choose it. The cards come straight from the
+search results, never from the AI's wording, so they can't show invented listings.
+The assistant's instructions were changed so that when several listings fit a need and the student gave no budget or preference, it lists
+the options and asks which one, instead of silently picking the cheapest and preparing a payment link.
+
+## Shopping assistant: handing the decision over
+If the student says "choose for me", "you decide", "just do it", "I'll just pay" and similar, the assistant picks, prepares the
+checkout, and its reply lists what it picked, the other options it found with prices, why the pick won, and that the only thing left
+is to approve the payment link. The cards under the reply show all the options. Safety rules still apply: the assistant never pays, and
+delegating never lets it skip a confirmation or go over a budget or limit (ASK and BLOCK work exactly as before).
+
+## Starter pack for new entrepreneurs
+`GET /insights/starter-pack` (owner sign-in) returns checked beginner tips, books and websites (`src/insights/starter-pack.ts`).
+The business assistant offers them once after a first business is confirmed, and shows them as a card when the owner asks. The assistant
+only ever sees titles, never links, and the card is built from this file, so it cannot invent a book or a web address. A test allows only
+checked hosts: to add a link, check it works, add it to the file, and add its host to the test.
+
+## Who can see what
+| Data | Who can read it |
+|---|---|
+| Businesses, listings, business pages, search | Everyone (it is a public marketplace) |
+| `GET /businesses`, `/businesses/:id/sales`, edits | Only the owner account that owns that business |
+| `GET /orders/mine`, `/buyers/me/limits` | Only the signed-in buyer, their own data |
+| `GET /policy/audit` (Safety log) | Only the signed-in buyer, their own decisions. Owners get an empty list |
+| `GET /orders/:id` (receipt link) | Anyone who has the link (an unguessable id). It shows the buyer's name only, never their email |
+
+Sign-in is a **demo**: there is no password, so anyone who knows an email can sign in as it (the role is just chosen at login).
+`demo-buyer@campus.test` and `demo-owner@campus.test` are ordinary accounts: they see only what they created. Nothing shows "all
+businesses with their sales" except signing in as the account that owns them. Real sign-in (Google or a magic link) is the production step.
+The seed businesses belong to `print.owner@example.com`, `salon.owner@example.com` and `rides.owner@example.com`, and the seeded
+demo orders to `student@example.com`.
+
+## Buyers: who an order belongs to, history and personal limits
+- A signed-in buyer always buys as themselves: `POST /orders` and the shopping agent use the signed-in email (any `buyerEmail` in the
+  body is ignored). Without sign-in (for example Swagger testing) the seeded demo student is used. A token that is present but
+  invalid or expired is rejected with 401 rather than silently falling back to the demo student.
+  Orders made before this change stay with the demo student.
+- `GET /orders/mine` (sign-in needed) lists the buyer's own orders, newest first.
+- `GET /buyers/me/limits` and `PUT /buyers/me/limits` (sign-in needed) read and set the buyer's own safety limits:
+  `{ "maxOrderCents": 4000, "confirmAboveCents": 1500 }`, with `null` meaning "use the default". Limits can only be **stricter**
+  than the system's (`POLICY_HARD_CAP_CENTS`, `POLICY_CONFIRM_ABOVE_CENTS`): the maximum order can't exceed the system cap and
+  "ask me first" can't exceed the buyer's own maximum. The policy engine applies them on every checkout and the audit log records the result.
+
+## Sellers: sales
+`GET /businesses/:id/sales` (owner sign-in, own business only) returns totals (paid orders, what customers paid, platform fee,
+PayPal fee, what the seller received) and the 20 most recent paid orders. Only completed orders count. Buyers appear by name only,
+never by email.
+
+## Owner edits
+Owners (signed in) can correct their own data. Both routes only touch the signed-in owner's businesses and change only the fields sent:
+- `PATCH /businesses/:id` changes name, category or description.
+- `PATCH /businesses/:id/listings/:listingId` changes title, description, kind, price (0.50 to 100.00 dollars), unit, or `active`.
+  `active: false` hides a listing: it leaves search and business pages, and checkout refuses it. `active: true` shows it again.
+
+## Search analytics and a fresh database
+Search analytics are **real, anonymous counts of what people search for**, so they start empty. A new database
+created from the migrations (and `npm run db:seed`, which only adds demo businesses and listings) has **no search data
+until people search**. That is by design: nothing is pre-filled or invented, and the owner assistant only quotes numbers it
+really reads from the database.
+
+What this means in practice:
+- Right after setup, the owner assistant says there isn't enough campus search data yet and falls back to general ideas.
+- Demand appears once a keyword has been searched **at least 2 times** (a privacy rule, `MIN_REPORT_COUNT`).
+- Counting happens in `GET /listings?q=`, so Browse (press Search or Enter) and the shopping assistant both feed it.
+
+To see demand insights yourself (for example when testing or recording a demo):
+1. Sign in as a buyer and search for things nobody sells yet, twice each (for example "tutoring", "laundry", "phone charger").
+2. Sign in as an owner, open the **Assistant** and ask "I have no idea what to sell. What do students want?"
+3. It should quote the real counts and mention that nobody sells those things yet.
+
+## Troubleshooting: sign-in hangs or "Could not reach the server"
+- **Several old copies running.** `Port 5173 is in use, trying another one...` and `EADDRINUSE ... :3000` mean old dev servers are still alive.
+  List them with `ss -ltnp | grep -E ':(3000|3003|517[0-9])'` and stop the stale ones (`kill <pid>`), so Vite gets 5173 again.
+- **Frontend and backend must point at each other.** Backend `.env`: `PORT=3003`. Frontend `.env`: `VITE_API_URL=http://localhost:3003`.
+  Restart Vite after editing `.env` (it only reads it at startup). Check the backend is really on that port: open `http://localhost:3003/docs`.
+- **CORS.** In development the API accepts a browser page on any localhost port (Vite hops ports). In production only `FRONTEND_URL`
+  (one address or a comma-separated list) is accepted, and localhost is not.
+- **PayPal redirect.** `FRONTEND_URL` must be the address the app is really on, because PayPal sends the buyer back there.
+- The frontend now gives up after 20 seconds (2 minutes for the assistant) with a message naming the address it tried.
+
+## Troubleshooting: search analytics shows nothing
+- Check the server log at startup. `The "SearchInterest" table is missing` means your `dev.db` is behind the code: run `npm run db:deploy`.
+- A keyword is only shown to owners once it has been searched **at least 2 times** (`MIN_REPORT_COUNT`), so one test search per word won't appear. Search each word twice.
+- Counting happens in `GET /listings?q=`: Browse (press Search/Enter) and the shopping assistant both use it.
