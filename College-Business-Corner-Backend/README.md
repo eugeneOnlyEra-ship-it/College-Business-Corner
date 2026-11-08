@@ -4,16 +4,16 @@ Campus marketplace API: businesses list products/services, students pay through 
 (multi-seller split payments with a platform fee), and an AI shopping agent buys on a
 student's behalf under a spending policy.
 
-> Hackathon: PayPal AI Hackathon (Devpost). Full context: see `/HANDOVER/PROJECT_HANDOVER.md` at the repo root.
+> Built for the PayPal AI Hackathon (Devpost). The project story, a demo walkthrough and the architecture are in the README at the repo root.
 
 ## Requirements
-- Node.js 22.22.3+ (Nest 12 scaffold requirement)
+- Node.js 22.12 or newer (tested on 22.23 and 26.13). After switching Node versions, run `npm rebuild better-sqlite3`.
 - A PayPal Developer account with a **Platform** app in the **Sandbox**, a sandbox Personal
   (buyer) account, and at least one sandbox Business (seller) account that has been onboarded.
 
 ## Setup
 ```bash
-npm install            # if you hit "Cannot read properties of null (reading 'edgesOut')": npm install --legacy-peer-deps
+npm install            # "Cannot read properties of null (reading 'edgesOut')" usually means the wrong package.json is in this folder: its "name" must be college-business-corner-backend
 cp .env.example .env   # then fill in the values (DATABASE_URL="file:./dev.db" is already right)
 npx prisma generate    # builds the typed database client into src/generated/prisma
 npx prisma migrate dev # creates the local SQLite database (dev.db) from prisma/migrations
