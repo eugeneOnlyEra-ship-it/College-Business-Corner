@@ -71,13 +71,31 @@ The agent has two tools: search listings, and request a checkout. It can only *p
 engine decides allow / ask / block, and the buyer approves any payment in PayPal. The response includes
 the reply, the checkout decision (with the PayPal `approveUrl` when allowed) and the tool steps taken.
 
-## Sign-in (demo)
-Open the app and choose **I want to buy** or **I want to sell**, then enter an email (no password in this prototype),
-or use the **demo buyer / demo business owner** links. The backend returns a signed session token
+## Sign-in
+Open the app and choose **I want to buy** or **I want to sell**, then enter an email (no password in this Web version),
+or use the **Explore as a buyer / Explore as a seller** buttons. The backend returns a signed session token
 (`POST /auth/login`); owner endpoints (`/businesses/*`) need it and take the owner from the token, so one
 owner cannot manage another's business. In Swagger, paste the token into **Authorize**.
 Set `AUTH_SECRET` in `.env` (any long random string; required when `NODE_ENV=production`).
-Real sign-in (Google or magic links) is the production step.
+
+### Why there is no password
+This project exists to show two things: an **AI assistant** (shopping for students, and helping owners run a business) and **PayPal**
+payments (several sellers paid directly in one checkout, with safety checks). Sign-in is kept deliberately frictionless so that a judge
+or visitor can reach those features in one click, with no registration, no email verification and no password to create, remember or reset.
+Click **Explore as a buyer** or **Explore as a seller**, or type any email.
+
+What still holds without a password:
+- **Each account only sees its own data.** Owners can only read and change their own businesses and sales; buyers only their own orders,
+  spending limits and Safety log. This is enforced on the server from the signed token (not from anything the browser sends) and is
+  covered by automated tests.
+- **Sessions are signed and expire** after 7 days, and the server refuses to start in production without `AUTH_SECRET`.
+- **No real money moves.** All payments run in PayPal's sandbox.
+
+What it means, honestly:
+- **Anyone who knows an email can sign in as that account.** That is fine for trying out a marketplace with sample data, and not
+  acceptable for real customers. So treat every email as just a label: please do not use a real person's email or real personal details.
+- **A real launch needs real sign-in** (Google, a magic link sent by email, or passkeys). The rest of the app already works from the
+  signed-in identity in the token, so adding it mainly replaces the login step.
 
 ## Business assistant (owners)
 Owners get an **Assistant** tab. Tell it what you offer ("I offer salon services at $15") and it sets up the business and a clean,
@@ -148,9 +166,9 @@ checked hosts: to add a link, check it works, add it to the file, and add its ho
 | `GET /policy/audit` (Safety log) | Only the signed-in buyer, their own decisions. Owners get an empty list |
 | `GET /orders/:id` (receipt link) | Anyone who has the link (an unguessable id). It shows the buyer's name only, never their email |
 
-Sign-in is a **demo**: there is no password, so anyone who knows an email can sign in as it (the role is just chosen at login).
+Sign-in in this Web version has no password on purpose, so judges can reach the AI and PayPal features in one click (see "Why there is no password" above). It also means anyone who knows an email can sign in as it (the role is just chosen at login).
 `demo-buyer@campus.test` and `demo-owner@campus.test` are ordinary accounts: they see only what they created. Nothing shows "all
-businesses with their sales" except signing in as the account that owns them. Real sign-in (Google or a magic link) is the production step.
+businesses with their sales" except signing in as the account that owns them. 
 The seed businesses belong to `print.owner@example.com`, `salon.owner@example.com` and `rides.owner@example.com`, and the seeded
 demo orders to `student@example.com`.
 

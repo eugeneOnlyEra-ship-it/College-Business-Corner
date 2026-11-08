@@ -12,6 +12,12 @@ npm run dev        # http://localhost:5173
 Optional: copy `.env.example` to `.env` if the backend is not on `http://localhost:3000`.
 In the backend `.env` set `FRONTEND_URL=http://localhost:5173` so PayPal returns you to the receipt page.
 
+## Sign-in (why there is no password)
+The Web version has no passwords on purpose: the aim is to let a judge or visitor try the AI assistant and PayPal checkout in one click
+(**Explore as a buyer** / **Explore as a seller**, or any email). Every account still only sees its own data, and all payments are in PayPal's
+sandbox, so no real money moves. The trade-off is that anyone who knows an email can sign in as it, so use sample emails, not real personal
+details. Real sign-in (Google or a magic link) would be added for a real launch. Details are in the backend README, "Why there is no password".
+
 ## If sign-in hangs or says "Could not reach the server"
 The message names the address it tried (from `VITE_API_URL`). Check the backend is running there, that you restarted `npm run dev`
 after editing `.env`, and that you are not looking at an old copy: `Port 5173 is in use, trying another one...` means an older Vite is

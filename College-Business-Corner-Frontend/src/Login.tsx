@@ -72,14 +72,14 @@ export default function Login() {
           </label>
           {error && <div className="error" role="alert">{error}</div>}
           <button className="primary" disabled={busy}>{busy ? 'Signing in…' : 'Continue'}</button>
-          <p className="fine">Demo sign-in: no password in this prototype.</p>
+          <p className="fine">Sign-in: no password in this Web version.</p>
         </form>
-        <div className="demo card" aria-label="Demo accounts">
+        <div className="demo card" aria-label="Quick start">
           <h3>Just looking? Jump straight in</h3>
-          <p className="fine">No sign-up needed. Explore the prototype as either side of the marketplace.</p>
+          <p className="fine">No sign-up needed. Explore the Web version as either side of the marketplace.</p>
           <div className="demo-actions">
-            <button className="primary" disabled={busy} onClick={() => enter('demo-buyer@campus.test', 'BUYER')}>Try demo buyer</button>
-            <button className="ghost-dark" disabled={busy} onClick={() => enter('demo-owner@campus.test', 'OWNER')}>Try demo seller</button>
+            <button className="primary" disabled={busy} onClick={() => enter('demo-buyer@campus.test', 'BUYER')}>Explore as a buyer</button>
+            <button className="ghost-dark" disabled={busy} onClick={() => enter('demo-owner@campus.test', 'OWNER')}>Explore as a seller</button>
           </div>
         </div>
       </div>
