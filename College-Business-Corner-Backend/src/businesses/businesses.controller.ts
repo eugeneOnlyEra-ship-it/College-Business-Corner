@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { OwnerGuard, type AuthedRequest } from '../auth/auth.guard.js';
 import { CreateBusinessDto, CreateListingDto, ListingImageDto, UpdateBusinessDto, UpdateListingDto } from './businesses.dto.js';
@@ -20,6 +20,23 @@ export class BusinessesController {
   @Get()
   mine(@Req() req: AuthedRequest) {
     return this.businesses.listForOwner(req.user.email);
+  }
+
+  /** Close the business: hidden from shoppers and closed to new orders. History is kept. */
+  @Post(':id/close')
+  close(@Param('id') id: string, @Req() req: AuthedRequest) {
+    return this.businesses.close(id, req.user.email);
+  }
+
+  @Post(':id/reopen')
+  reopen(@Param('id') id: string, @Req() req: AuthedRequest) {
+    return this.businesses.reopen(id, req.user.email);
+  }
+
+  /** Delete for good. Only allowed when nothing was ever ordered from the business. */
+  @Delete(':id')
+  remove(@Param('id') id: string, @Req() req: AuthedRequest) {
+    return this.businesses.remove(id, req.user.email);
   }
 
   @Patch(':id')

@@ -167,3 +167,18 @@
 .spack-list a:not(.chip):hover { color: var(--forest-800, #12301e); }
 .spack-list .chip { white-space: nowrap; text-decoration: none; }
 .spack .fine { color: #4b5d51; }
+
+/* Close or delete a business */
+.danger-zone { margin-top: 22px; padding-top: 14px; border-top: 1px dashed #cdb89c; }
+.danger-toggle { background: none; border: 0; padding: 4px 0; color: #6b2b24; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.danger-toggle:focus-visible { outline: 3px solid #46201d; outline-offset: 3px; border-radius: 4px; }
+.danger-body { display: grid; gap: 14px; margin-top: 12px; }
+.danger-option { padding: 12px 14px; background: #fbf6ef; border: 1px solid #e2cfb4; border-radius: 12px; }
+.danger-option h4 { margin: 0 0 4px; }
+.delete-confirm label { display: block; margin: 8px 0; }
+.delete-confirm input { display: block; width: 100%; margin-top: 4px; }
+.danger-btn { background: #8a1c1c; color: #fff; border: 1px solid #8a1c1c; border-radius: 999px; padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer; }
+.danger-btn:disabled { opacity: .45; cursor: not-allowed; }
+.danger-btn:hover:not(:disabled) { background: #6d1515; }
+.closed-banner { margin: 10px 0 14px; padding: 14px 16px; background: #f3ece4; border: 1px solid #d9c6b0; border-radius: 12px; color: var(--ink, #0f1f15); }
+.biz-panel.is-closed { opacity: .96; }

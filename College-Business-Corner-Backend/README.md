@@ -188,6 +188,16 @@ demo orders to `student@example.com`.
 PayPal fee, what the seller received) and the 20 most recent paid orders. Only completed orders count. Buyers appear by name only,
 never by email.
 
+## Closing and deleting a business
+Owners can take a business out of the marketplace, or remove it, from **My business** (all routes need the owner's sign-in and only touch their own business):
+- `POST /businesses/:id/close`: hides it from shoppers (search, the business page, the assistant) and blocks checkout for it ("no longer available").
+  Order history, receipts and sales are kept. It is refused for a few minutes (up to 3 hours) while a buyer has an unfinished checkout for it, so nobody pays a closed business.
+  A closed business cannot be edited, get new listings, photos or PayPal setup until it is reopened. Closed businesses do not count towards the 5-business limit.
+- `POST /businesses/:id/reopen`: opens it again.
+- `DELETE /businesses/:id`: deletes the business, its listings and their photos for good, **only if nothing was ever ordered from it** (otherwise `409`, close it instead).
+  The owner list (`GET /businesses`) reports `closed` and `hasOrders` for each business. PayPal is not changed by any of this.
+This needs the `business_closed` migration: run `npm run db:deploy` (Railway does it on every start).
+
 ## Owner edits
 Owners (signed in) can correct their own data. Both routes only touch the signed-in owner's businesses and change only the fields sent:
 - `PATCH /businesses/:id` changes name, category or description.

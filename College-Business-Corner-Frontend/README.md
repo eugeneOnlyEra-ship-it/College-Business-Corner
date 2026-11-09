@@ -27,7 +27,7 @@ still running, so stop it (`ss -ltnp | grep 517` shows it). See the backend READ
 - `#/` (buyers) Shopping assistant chat + cart. The example prompts are built from real listings, so they work on any database.
 - `#/assistant` (owners) Business assistant: sets up the business and listings, suggests ideas from anonymous campus
   search demand, and guides PayPal onboarding. It only proposes; the owner confirms each card.
-- `#/sell` (owners) "My business": PayPal status and connect, listings with photo upload, edit, and hide/show (a hidden listing disappears from search, business pages and checkout), editable business details, a Sales panel (paid orders, fees and what you received), and manual forms to
+- `#/sell` (owners) "My business": PayPal status and connect, listings with photo upload, edit, and hide/show (a hidden listing disappears from search, business pages and checkout), editable business details, a Sales panel (paid orders, fees and what you received), **Close business** (hidden from shoppers, history kept, can be reopened) and **Delete permanently** (only if nothing was ever ordered, and you must type the name), and manual forms to
   register a business or add a listing without the assistant.
 - `#/business/:id` Business page: description, payment status, member since and every listing with photos. Buyers can send a ready-made request to the shopping assistant. Opened from any card in Browse.
 - `#/orders` (buyers) My orders: every order with its status, date, businesses and total, with a receipt link for paid ones.

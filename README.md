@@ -37,7 +37,7 @@ Sign-in has no password on purpose, see [below](#why-sign-in-has-no-password).
 | 2 | **Safety rules in plain code.** The AI can search and propose, but only the rules decide allow, ask or block. Personal spending limits (only ever stricter), and a private Safety log | My limits, Safety log |
 | 3 | **One checkout, several sellers.** Each seller is paid directly, with a platform fee | PayPal approval, receipt, My orders |
 | 4 | **Business Assistant.** Creates a business and listings, guides PayPal onboarding, suggests what to sell from anonymous search demand, offers a starter pack. Every action is a card the owner confirms | Assistant (seller) |
-| 5 | **Seller dashboard.** Edit or hide listings, photos, and a Sales panel with fees and what you received | My business |
+| 5 | **Seller dashboard.** Edit or hide listings, photos, a Sales panel with fees and what you received, and closing or deleting a business | My business |
 
 ## How PayPal is used
 
@@ -111,6 +111,8 @@ npm run dev
 > **Important: the sample sellers.** The seed script points its sample businesses at the author's own PayPal sandbox merchant accounts, and those can only be paid through the author's PayPal app. To check out locally, either set `SEED_PRINT_MERCHANT_ID` and `SEED_SALON_MERCHANT_ID` in `.env` to your own onboarded sandbox sellers before seeding, or sign in as a seller and use the Business Assistant to create a business and connect PayPal through the sandbox onboarding. The hosted demo is already set up.
 
 If something goes wrong (ports in use, sign-in hanging, Node version errors), see **Troubleshooting** in `College-Business-Corner-Backend/README.md`.
+
+To host it yourself (website and API behind one address, with a persistent volume), see **[DEPLOY-RAILWAY.md](DEPLOY-RAILWAY.md)**.
 
 ## Why sign-in has no password
 

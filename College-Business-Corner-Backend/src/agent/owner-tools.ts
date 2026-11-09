@@ -6,7 +6,7 @@ export const OWNER_TOOLS = [
     functionDeclarations: [
       {
         name: 'get_my_businesses',
-        description: "Read the signed-in owner's businesses: id, name, category, PayPal setup state (NOT_STARTED, PENDING or READY) and listings (id, title, price in cents, unit, active).",
+        description: "Read the signed-in owner's businesses: id, name, category, closed (true if the owner closed it), PayPal setup state (NOT_STARTED, PENDING or READY) and listings (id, title, price in cents, unit, active).",
         parametersJsonSchema: { type: 'object', properties: {} },
       },
       {

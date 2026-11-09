@@ -1,10 +1,11 @@
 import { existsSync, statSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { UPLOADS_DIR } from '../paths.js';
 
 /** Listing photos live on disk as uploads/listings/<listingId>.<ext>. No database change needed. */
 export const MAX_IMAGE_BYTES = 1_000_000;
-export const IMAGE_DIR = join(process.cwd(), 'uploads', 'listings');
+export const IMAGE_DIR = join(UPLOADS_DIR, 'listings');
 const EXTENSIONS = ['jpg', 'png', 'webp'] as const;
 export type ImageExt = (typeof EXTENSIONS)[number];
 
@@ -44,4 +45,10 @@ export function imageUrlFor(listingId: string, dir = IMAGE_DIR): string | undefi
     if (existsSync(file)) return `/uploads/listings/${listingId}.${ext}?v=${Math.round(statSync(file).mtimeMs)}`;
   }
   return undefined;
+}
+
+/** Removes a listing's photo, whatever its type. Missing files are fine. */
+export async function removeListingImage(listingId: string, dir = IMAGE_DIR): Promise<void> {
+  if (!/^[A-Za-z0-9_-]+$/.test(listingId)) return;
+  await Promise.all(EXTENSIONS.map((ext) => rm(join(dir, `${listingId}.${ext}`), { force: true })));
 }

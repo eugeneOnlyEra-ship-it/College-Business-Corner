@@ -50,9 +50,11 @@ export class PolicyService {
     const ids = Array.isArray(req.items)
       ? [...new Set((req.items as any[]).map((i) => i?.listingId).filter((x) => typeof x === 'string'))]
       : [];
-    const listings = ids.length
+    const found = ids.length
       ? await this.prisma.listing.findMany({ where: { id: { in: ids } }, include: { business: true } })
       : [];
+    // A closed business is treated like a hidden listing: "no longer available".
+    const listings = found.map((l) => ({ ...l, active: l.active && !l.business.closedAt }));
 
     const verdict = evaluatePolicy(
       req.items,

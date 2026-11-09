@@ -1,4 +1,7 @@
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000';
+// Development: the API runs on localhost:3000. A production build with no VITE_API_URL is served by the API itself
+// (see the Dockerfile), so it talks to the address it was loaded from.
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? '' : 'http://localhost:3000');
+const WHERE = BASE || window.location.origin;
 
 export const assetUrl = (path?: string | null) => (path ? `${BASE}${path}` : undefined);
 
@@ -112,7 +115,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutFor(path));
   const tooSlow = () =>
-    new ApiError(`The server at ${BASE} did not answer in time. Check that the backend is running and that VITE_API_URL points to it.`, 0, null);
+    new ApiError(`The server at ${WHERE} did not answer in time. Check that the backend is running and that VITE_API_URL points to it.`, 0, null);
   try {
     let res: Response;
     try {
@@ -124,7 +127,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       if (controller.signal.aborted) throw tooSlow();
       throw new ApiError(
-        `Could not reach the server at ${BASE}. Check that the backend is running, that VITE_API_URL is correct, and that the backend allows this page's address.`,
+        `Could not reach the server at ${WHERE}. Check that the backend is running, that VITE_API_URL is correct, and that the backend allows this page's address.`,
         0,
         null,
       );
@@ -195,6 +198,10 @@ export interface OwnedBusiness {
   category: string;
   description: string;
   onboarding: Onboarding;
+  /** Closed by the owner: hidden from shoppers and closed to orders. History is kept. */
+  closed: boolean;
+  /** Something was ordered from it at some point, so it can be closed but not deleted. */
+  hasOrders: boolean;
   listings: { id: string; title: string; description?: string; priceCents: number; kind: string; unit: string | null; active: boolean; imageUrl?: string }[];
 }
 
@@ -221,6 +228,9 @@ export const updateListing = (businessId: string, listingId: string, changes: Li
   request<{ id: string }>(`/businesses/${businessId}/listings/${listingId}`, { method: 'PATCH', body: JSON.stringify(changes) });
 export const updateBusiness = (id: string, changes: { name?: string; category?: string; description?: string }) =>
   request<{ id: string }>(`/businesses/${id}`, { method: 'PATCH', body: JSON.stringify(changes) });
+export const closeBusiness = (id: string) => request<{ id: string; closed: boolean }>(`/businesses/${id}/close`, { method: 'POST' });
+export const reopenBusiness = (id: string) => request<{ id: string; closed: boolean }>(`/businesses/${id}/reopen`, { method: 'POST' });
+export const deleteBusiness = (id: string) => request<{ id: string; deleted: boolean }>(`/businesses/${id}`, { method: 'DELETE' });
 export const connectPaypal = (id: string) => post<{ onboardingUrl: string }>(`/businesses/${id}/paypal/connect`, {});
 export const uploadListingImage = (businessId: string, listingId: string, data: string) =>
   post<{ imageUrl?: string }>(`/businesses/${businessId}/listings/${listingId}/image`, { data });

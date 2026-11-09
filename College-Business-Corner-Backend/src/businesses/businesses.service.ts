@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -8,10 +9,12 @@ import { randomUUID } from 'node:crypto';
 import { PaypalService } from '../paypal/paypal.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateBusinessDto, CreateListingDto, ListingImageDto, UpdateBusinessDto, UpdateListingDto } from './businesses.dto.js';
-import { decodeBase64Image, imageUrlFor, MAX_IMAGE_BYTES, saveListingImage } from './listing-images.js';
+import { decodeBase64Image, imageUrlFor, MAX_IMAGE_BYTES, removeListingImage, saveListingImage } from './listing-images.js';
 
 const MAX_BUSINESSES_PER_OWNER = 5;
 const MAX_LISTINGS_PER_BUSINESS = 30;
+// A PayPal approval link stays valid for about this long, so an unfinished checkout newer than this may still be paid.
+const PAYMENT_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 function email(raw: unknown): string {
   const e = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
@@ -57,7 +60,7 @@ export class BusinessesService {
       update: {},
       create: { email: ownerEmail, name: ownerName },
     });
-    const count = await this.prisma.business.count({ where: { ownerId: owner.id } });
+    const count = await this.prisma.business.count({ where: { ownerId: owner.id, closedAt: null } }); // closed ones do not count
     if (count >= MAX_BUSINESSES_PER_OWNER) {
       throw new BadRequestException(`One account can have at most ${MAX_BUSINESSES_PER_OWNER} businesses.`);
     }
@@ -80,12 +83,19 @@ export class BusinessesService {
       orderBy: { createdAt: 'asc' },
       include: { listings: { orderBy: { createdAt: 'asc' } } },
     });
+    // Which of them have ever been ordered from (those can be closed but not deleted).
+    const ordered = businesses.length
+      ? await this.prisma.orderItem.groupBy({ by: ['businessId'], where: { businessId: { in: businesses.map((b) => b.id) } } })
+      : [];
+    const withOrders = new Set(ordered.map((o) => o.businessId));
     return businesses.map((b) => ({
       id: b.id,
       name: b.name,
       category: b.category,
       description: b.description,
       onboarding: b.onboarding,
+      closed: b.closedAt !== null,
+      hasOrders: withOrders.has(b.id),
       listings: b.listings.map((l) => ({
         id: l.id,
         title: l.title,
@@ -109,8 +119,16 @@ export class BusinessesService {
     return business;
   }
 
+  /** A closed business is read-only until it is reopened. */
+  private assertOpen(business: { closedAt: Date | null }) {
+    if (business.closedAt) {
+      throw new ConflictException('This business is closed. Reopen it on My business to make changes.');
+    }
+  }
+
   async addListing(id: string, dto: CreateListingDto) {
     const business = await this.getOwned(id, dto?.ownerEmail);
+    this.assertOpen(business);
     const title = text(dto.title, 'Title', 2, 80);
     const description = optionalText(dto.description, 'Description', 200);
     const unit = optionalText(dto.unit, 'Unit', 30) || null;
@@ -130,6 +148,7 @@ export class BusinessesService {
   /** Changes only the fields that were sent. Hiding a listing (active: false) keeps it for the owner but removes it from search and checkout. */
   async updateListing(id: string, listingId: string, dto: UpdateListingDto) {
     const business = await this.getOwned(id, dto?.ownerEmail);
+    this.assertOpen(business);
     const listing = await this.prisma.listing.findFirst({ where: { id: listingId, businessId: business.id } });
     if (!listing) throw new NotFoundException('Listing not found.');
     const data: Record<string, unknown> = {};
@@ -213,6 +232,7 @@ export class BusinessesService {
   /** Lets the owner fix the name, category or description of their own business. */
   async updateBusiness(id: string, dto: UpdateBusinessDto) {
     const business = await this.getOwned(id, dto?.ownerEmail);
+    this.assertOpen(business);
     const data: Record<string, string> = {};
     if (dto.name !== undefined) data.name = text(dto.name, 'Business name', 2, 60);
     if (dto.category !== undefined) data.category = text(dto.category, 'Category', 2, 30).toLowerCase();
@@ -225,6 +245,7 @@ export class BusinessesService {
   /** Saves (or replaces) the photo of one of the owner's listings. */
   async setListingImage(id: string, listingId: string, dto: ListingImageDto) {
     const business = await this.getOwned(id, dto?.ownerEmail);
+    this.assertOpen(business);
     const listing = await this.prisma.listing.findFirst({ where: { id: listingId, businessId: business.id } });
     if (!listing) throw new NotFoundException('Listing not found.');
     const buf = decodeBase64Image(dto?.data);
@@ -238,9 +259,66 @@ export class BusinessesService {
     return { imageUrl: imageUrlFor(listing.id) };
   }
 
+  /**
+   * Closes a business: shoppers can no longer see or order from it, but its order history, receipts and sales stay.
+   * Refused while a buyer may still be in the middle of paying it.
+   */
+  async close(id: string, ownerEmail: unknown) {
+    const business = await this.getOwned(id, ownerEmail);
+    if (business.closedAt) return { id: business.id, closed: true };
+    const unfinished = await this.prisma.order.count({
+      where: {
+        status: { in: ['CREATED', 'AWAITING_APPROVAL'] },
+        createdAt: { gt: new Date(Date.now() - PAYMENT_WINDOW_MS) },
+        items: { some: { businessId: business.id } },
+      },
+    });
+    if (unfinished > 0) {
+      throw new ConflictException('A buyer is in the middle of paying this business. Please try again in a few minutes.');
+    }
+    await this.prisma.business.update({ where: { id: business.id }, data: { closedAt: new Date() } });
+    return { id: business.id, closed: true };
+  }
+
+  /** Opens a closed business again. */
+  async reopen(id: string, ownerEmail: unknown) {
+    const business = await this.getOwned(id, ownerEmail);
+    if (!business.closedAt) return { id: business.id, closed: false };
+    await this.prisma.business.update({ where: { id: business.id }, data: { closedAt: null } });
+    return { id: business.id, closed: false };
+  }
+
+  /**
+   * Deletes a business and its listings for good. Only allowed when nothing was ever ordered from it,
+   * because orders, receipts and sales point back at it. Otherwise it can be closed instead.
+   */
+  async remove(id: string, ownerEmail: unknown) {
+    const business = await this.getOwned(id, ownerEmail);
+    const hasOrders = (await this.prisma.orderItem.count({ where: { businessId: business.id } })) > 0;
+    if (hasOrders) {
+      throw new ConflictException('This business has order history, so it cannot be deleted. Close it instead.');
+    }
+    const listings = await this.prisma.listing.findMany({ where: { businessId: business.id }, select: { id: true } });
+    try {
+      await this.prisma.$transaction([
+        this.prisma.listing.deleteMany({ where: { businessId: business.id } }),
+        this.prisma.business.delete({ where: { id: business.id } }),
+      ]);
+    } catch (err) {
+      // An order slipped in between the check and the delete: the database refuses, and the business stays.
+      if ((err as { code?: string })?.code === 'P2003') {
+        throw new ConflictException('This business just received an order, so it cannot be deleted. Close it instead.');
+      }
+      throw err;
+    }
+    await Promise.all(listings.map((l) => removeListingImage(l.id).catch(() => undefined)));
+    return { id: business.id, deleted: true };
+  }
+
   /** Starts PayPal onboarding and returns the link the owner opens. */
   async connectPaypal(id: string, ownerEmail: unknown) {
     const business = await this.getOwned(id, ownerEmail);
+    this.assertOpen(business);
     if (business.onboarding === 'READY') {
       throw new BadRequestException('This business is already connected to PayPal.');
     }

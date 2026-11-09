@@ -59,6 +59,8 @@ model Business {
   paypalMerchantId String?
   onboarding       OnboardingStatus @default(NOT_STARTED)
   createdAt        DateTime         @default(now())
+  /// Set when the owner closes the business: hidden from shoppers and closed to new orders, history kept. Null = open.
+  closedAt         DateTime?
   listings         Listing[]
   orderItems       OrderItem[]
   payouts          OrderPayout[]

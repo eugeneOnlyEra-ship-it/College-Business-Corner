@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
-  addListing, ApiError, connectPaypal, createBusiness, dollars, getMyBusinesses, getPaypalStatus, getSales, updateBusiness, updateListing,
+  addListing, ApiError, connectPaypal, createBusiness, dollars, closeBusiness, deleteBusiness, getMyBusinesses, getPaypalStatus, getSales, reopenBusiness, updateBusiness, updateListing,
   type BusinessSales, type OwnedBusiness, type PaypalStatus,
 } from './api';
 import PhotoButton from './PhotoButton';
@@ -109,6 +109,8 @@ function BusinessPanel({ business, onChanged }: { business: OwnedBusiness; onCha
     } catch (e) { setError(msg(e)); } finally { setBusy(false); }
   }
 
+  if (business.closed) return <ClosedPanel business={business} onChanged={onChanged} />;
+
   return (
     <section className="card biz-panel">
       <div className="biz-head">
@@ -155,6 +157,7 @@ function BusinessPanel({ business, onChanged }: { business: OwnedBusiness; onCha
         </ul>
       )}
       <NewListing businessId={business.id} onAdded={onChanged} />
+      <CloseOrDelete business={business} onChanged={onChanged} />
     </section>
   );
 }
@@ -375,4 +378,105 @@ function SalesPanel({ businessId }: { businessId: string }) {
       )}
     </div>
   );
+}
+
+
+/** Close (reversible) or delete (only if nothing was ever ordered) a business. Both ask first. */
+function CloseOrDelete({ business, onChanged }: { business: OwnedBusiness; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<'none' | 'close' | 'delete'>('none');
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true); setError(null);
+    try { await action(); onChanged(); } catch (e) { setError(msg(e)); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="danger-zone">
+      <button type="button" className="danger-toggle" aria-expanded={open} onClick={() => { setOpen((o) => !o); setStep('none'); setError(null); }}>
+        Close or delete this business
+      </button>
+      {open && (
+        <div className="danger-body">
+          <div className="danger-option">
+            <h4>Close business</h4>
+            <p className="fine">Shoppers will no longer see {business.name} or be able to order from it. Your order history and sales are kept, and you can reopen it any time.</p>
+            {step === 'close' ? (
+              <div className="row-actions">
+                <button className="primary" disabled={busy} onClick={() => run(() => closeBusiness(business.id))}>{busy ? 'Closing…' : `Yes, close ${business.name}`}</button>
+                <button className="chip" onClick={() => setStep('none')}>Cancel</button>
+              </div>
+            ) : (
+              <button className="chip" onClick={() => { setStep('close'); setError(null); }}>Close business…</button>
+            )}
+          </div>
+
+          <div className="danger-option">
+            <h4>Delete permanently</h4>
+            {business.hasOrders ? (
+              <p className="fine">This business has order history, so it can be closed but not deleted.</p>
+            ) : (
+              <>
+                <p className="fine">Removes {business.name}, its listings and their photos for good. This cannot be undone. PayPal is not changed: your PayPal account stays yours.</p>
+                {step === 'delete' ? (
+                  <div className="delete-confirm">
+                    <label>Type <strong>{business.name}</strong> to confirm
+                      <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+                    </label>
+                    <div className="row-actions">
+                      <button className="danger-btn" disabled={busy || typed !== business.name} onClick={() => run(() => deleteBusiness(business.id))}>{busy ? 'Deleting…' : 'Delete permanently'}</button>
+                      <button className="chip" onClick={() => { setStep('none'); setTyped(''); }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button className="chip" onClick={() => { setStep('delete'); setError(null); }}>Delete permanently…</button>
+                )}
+              </>
+            )}
+          </div>
+          {error && <div className="error" role="alert">{error}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** What a closed business looks like: read-only, with a way back (and a way out if nothing was ever ordered). */
+function ClosedPanel({ business, onChanged }: { business: OwnedBusiness; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function reopen() {
+    setBusy(true); setError(null);
+    try { await reopenBusiness(business.id); onChanged(); } catch (e) { setError(msg(e)); } finally { setBusy(false); }
+  }
+
+  return (
+    <section className="card biz-panel is-closed">
+      <div className="biz-head">
+        <h2>{business.name}</h2>
+        <span className="badge off">Closed</span>
+      </div>
+      <p className="fine cap">{business.category}</p>
+      <div className="closed-banner" role="status">
+        <strong>This business is closed.</strong> Shoppers can't see it or order from it. Your order history and sales are kept
+        {business.listings.length > 0 ? `, and its ${business.listings.length} listing${business.listings.length === 1 ? '' : 's'} are saved for when you reopen it.` : '.'}
+        <div className="row-actions">
+          <button className="primary" disabled={busy} onClick={reopen}>{busy ? 'Reopening…' : 'Reopen business'}</button>
+        </div>
+      </div>
+      {error && <div className="error" role="alert">{error}</div>}
+      {business.hasOrders && <SalesPanel businessId={business.id} />}
+      <CloseOrDeleteClosed business={business} onChanged={onChanged} />
+    </section>
+  );
+}
+
+/** A closed business can still be deleted for good when nothing was ever ordered from it. */
+function CloseOrDeleteClosed({ business, onChanged }: { business: OwnedBusiness; onChanged: () => void }) {
+  if (business.hasOrders) return <p className="fine">It has order history, so it can be reopened but not deleted.</p>;
+  return <CloseOrDelete business={{ ...business, hasOrders: false }} onChanged={onChanged} />;
 }

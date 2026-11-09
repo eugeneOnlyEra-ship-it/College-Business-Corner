@@ -23,6 +23,7 @@ export class ListingsService {
     const listings = await this.prisma.listing.findMany({
       where: {
         active: true,
+        business: { closedAt: null }, // closed businesses are not for sale
         ...(maxPriceCents !== undefined ? { priceCents: { lte: maxPriceCents } } : {}),
         ...(text
           ? {
@@ -68,7 +69,7 @@ export class ListingsService {
       where: { id },
       include: { listings: { where: { active: true }, orderBy: { priceCents: 'asc' } } },
     });
-    if (!business) throw new NotFoundException('That business was not found.');
+    if (!business || business.closedAt) throw new NotFoundException('That business was not found.');
     return {
       id: business.id,
       name: business.name,
