@@ -22,11 +22,14 @@ FROM node:22-bookworm
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# `npm ci` generates the Prisma client (postinstall), so the schema and Prisma config must be here first.
+# The schema and Prisma config must be here before `npm ci`, because the Prisma client is generated from them.
 COPY College-Business-Corner-Backend/package.json College-Business-Corner-Backend/package-lock.json ./
 COPY College-Business-Corner-Backend/prisma ./prisma
 COPY College-Business-Corner-Backend/prisma7.config.ts ./
 RUN npm ci
+# Prisma 7 does not generate the client on install. Without this, src/generated/prisma does not exist
+# (it is gitignored) and `nest build` fails with "Property 'user' does not exist on type 'PrismaService'".
+RUN npx prisma generate
 
 COPY College-Business-Corner-Backend/ ./
 RUN npm run build
