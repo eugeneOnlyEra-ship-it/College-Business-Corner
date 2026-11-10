@@ -2,8 +2,12 @@
 // ALL money is stored in whole cents (1000 = $10.00). Convert to "10.00" only when talking to PayPal.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // Pinned (not inferred from tsconfig.json) so the Docker build, which generates before tsconfig.json is copied,
+  // emits "./foo.js" imports. Otherwise they come out as "./foo.ts" and Node fails at runtime.
+  importFileExtension = "js"
+  moduleFormat        = "esm"
 }
 
 datasource db {
