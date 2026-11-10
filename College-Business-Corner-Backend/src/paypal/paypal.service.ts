@@ -38,22 +38,36 @@ export class PaypalService {
       return this.cachedToken.value;
     }
     const auth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
-    const res = await fetch(`${this.baseUrl}/v1/oauth2/token`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials',
-    });
-    const data = (await res.json()) as { access_token: string; expires_in: number };
-    if (!res.ok) {
-      this.logger.error(`PayPal token request failed: ${res.status}`);
-      throw new BadGatewayException('Could not authenticate with PayPal');
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/v1/oauth2/token`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'grant_type=client_credentials',
+      });
+    } catch (e) {
+      this.logger.error(`PayPal token request could not reach "${this.baseUrl}": ${String(e)}`);
+      throw new BadGatewayException(`Could not reach PayPal at "${this.baseUrl}". Check PAYPAL_BASE_URL (it should be https://api-m.sandbox.paypal.com).`);
+    }
+    const text = await res.text();
+    let data: { access_token?: string; expires_in?: number } = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      /* not JSON: handled below */
+    }
+    if (!res.ok || !data.access_token) {
+      this.logger.error(`PayPal token request failed: ${res.status} ${text.slice(0, 300)}`);
+      throw new BadGatewayException(
+        `Could not authenticate with PayPal (status ${res.status}). Check PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and PAYPAL_BASE_URL.`,
+      );
     }
     this.cachedToken = {
       value: data.access_token,
-      expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+      expiresAt: Date.now() + ((data.expires_in ?? 300) - 60) * 1000,
     };
     return data.access_token;
   }
@@ -71,7 +85,12 @@ export class PaypalService {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     const text = await res.text();
-    const data = text ? JSON.parse(text) : {};
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { raw: text.slice(0, 300) };
+    }
     if (!res.ok) {
       this.logger.error(`PayPal ${method} ${path} -> ${res.status}: ${text}`);
       throw new BadGatewayException({ paypalStatus: res.status, paypal: data });
@@ -107,7 +126,7 @@ export class PaypalService {
         legal_consents: [{ type: 'SHARE_DATA_CONSENT', granted: true }],
       },
     );
-    const link = data.links.find((l) => l.rel === 'action_url');
+    const link = data.links?.find((l) => l.rel === 'action_url');
     return { trackingId, onboardingUrl: link?.href };
   }
 
