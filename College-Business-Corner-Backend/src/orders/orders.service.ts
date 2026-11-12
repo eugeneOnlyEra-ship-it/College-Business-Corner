@@ -212,6 +212,12 @@ export class OrdersService {
         data: { status: allCaptured ? 'COMPLETED' : 'FAILED' },
       }),
     ]);
+    if (!allCaptured) {
+      // Say exactly what PayPal answered, so a failed payment can be understood from the logs.
+      const expected = order.payouts.map((p) => p.paypalMerchantId).join(', ');
+      const got = result.captures.map((c: any) => `${c.seller ?? 'no-payee'}=${c.status ?? 'no-capture'}${c.reason ? ` (${c.reason})` : ''}`).join('; ');
+      this.logger.warn(`Order ${order.id} FAILED. PayPal order status: ${result.status}. Expected sellers: [${expected}]. PayPal returned: [${got}]`);
+    }
     this.logger.log(`Order ${order.id} ${allCaptured ? 'COMPLETED' : 'FAILED'}`);
     return this.getOrder(order.id);
   }
