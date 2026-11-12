@@ -154,7 +154,9 @@ export class PaypalService {
         throw new BadRequestException(`Item ${i + 1}: invalid amount/fee`);
       }
       return {
-        reference_id: `unit-${i + 1}`,
+        // The seller's merchant id doubles as the reference id. PayPal echoes it back on the capture, even when the
+        // reply leaves out payee.merchant_id, which is how the captured payment is matched to its seller.
+        reference_id: item.sellerMerchantId,
         description: item.description,
         payee: { merchant_id: item.sellerMerchantId },
         amount: { currency_code: 'USD', value: item.amount },
@@ -198,7 +200,7 @@ export class PaypalService {
         const c = u.payments?.captures?.[0];
         const b = c?.seller_receivable_breakdown;
         return {
-          seller: u.payee?.merchant_id,
+          seller: (u.payee?.merchant_id ?? u.reference_id) as string | undefined,
           captureId: c?.id,
           status: c?.status,
           reason: c?.status_details?.reason as string | undefined, // why a capture is PENDING or DECLINED
