@@ -30,6 +30,10 @@ export default function OrderPage({ id }: { id: string }) {
           <span className={`stamp ${order.status === 'COMPLETED' ? 'allow' : 'ask'}`}>{order.status.toLowerCase().replace('_', ' ')}</span>
         </div>
 
+        {order.status === 'FAILED' && order.failureReason && (
+          <div className="error" role="alert">Details from PayPal: {order.failureReason}</div>
+        )}
+
         <ul className="lines">
           {order.items.map((it, i) => (
             <li key={i}>

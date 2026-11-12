@@ -16,6 +16,9 @@ const DEFAULT_BUYER_EMAIL = 'student@example.com';
 
 @Injectable()
 export class OrdersService {
+  /** Why a payment failed, kept in memory only (lost on restart). Shown on the receipt to help diagnose it. */
+  private readonly failureReasons = new Map<string, string>();
+
   private readonly logger = new Logger(OrdersService.name);
 
   constructor(
@@ -217,6 +220,14 @@ export class OrdersService {
       const expected = order.payouts.map((p) => p.paypalMerchantId).join(', ');
       const got = result.captures.map((c: any) => `${c.seller ?? 'no-payee'}=${c.status ?? 'no-capture'}${c.reason ? ` (${c.reason})` : ''}`).join('; ');
       this.logger.warn(`Order ${order.id} FAILED. PayPal order status: ${result.status}. Expected sellers: [${expected}]. PayPal returned: [${got}]`);
+      // A short, plain reason the receipt page can show (merchant ids are masked to their last 4 characters).
+      const tail = (id: string) => `…${id.slice(-4)}`;
+      const perSeller = [...new Set(order.payouts.map((p) => p.paypalMerchantId))].map((id) => {
+        const c = bySeller.get(id) as any;
+        if (!c) return `seller ${tail(id)}: PayPal returned no payment record for this seller`;
+        return `seller ${tail(id)}: ${c.status ?? 'no capture'}${c.reason ? ` (${c.reason})` : ''}`;
+      });
+      this.failureReasons.set(order.id, `PayPal order status ${result.status}. ${perSeller.join('; ')}`);
     }
     this.logger.log(`Order ${order.id} ${allCaptured ? 'COMPLETED' : 'FAILED'}`);
     return this.getOrder(order.id);
@@ -242,6 +253,6 @@ export class OrdersService {
       },
     });
     if (!order) throw new NotFoundException('Order not found');
-    return order;
+    return { ...order, failureReason: order.status === 'FAILED' ? (this.failureReasons.get(order.id) ?? null) : null };
   }
 }

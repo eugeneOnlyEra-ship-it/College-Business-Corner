@@ -53,6 +53,7 @@ export interface ChatResponse {
 export interface OrderView {
   id: string;
   status: string;
+  failureReason?: string | null;
   totalCents: number;
   items: {
     quantity: number;
