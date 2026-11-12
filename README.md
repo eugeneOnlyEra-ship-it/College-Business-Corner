@@ -2,7 +2,7 @@
 
 **A campus marketplace where students start small businesses and shop from each other, with an AI agent on both sides of every sale and PayPal moving the money.**
 
-[Live demo]({{DEMO_URL}}) · [Demo video]({{VIDEO_URL}}) · Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/)
+[Live demo](https://college-business-corner.up.railway.app/) · [Demo video](https://youtu.be/3IjSRJM1jbE) · Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/)
 
 ---
 
@@ -22,7 +22,7 @@ An AI agent on both ends makes it easy to start, and easy for fellow students to
 
 ## Try it in 60 seconds
 
-1. Open the **[live demo]({{DEMO_URL}})** and click **Explore as a buyer**.
+1. Open the **[live demo](https://college-business-corner.up.railway.app/)** and click **Explore as a buyer**.
 2. Tap an example prompt, or type something like *"I need 40 pages printed and a haircut, budget $25"*. You will see the listings as cards. Tap one to read about the business, or say *"choose for me, I'll just pay"*.
 3. Approve the PayPal sandbox payment with any **sandbox Personal account** (create one free in the [PayPal Developer Dashboard](https://developer.paypal.com/dashboard/) under Testing tools, then Sandbox accounts). **No real money moves.**
 4. Sign out, then click **Explore as a seller**. In **Assistant**, say *"I offer laundry at $15 per load"* and confirm the cards it prepares.
@@ -81,7 +81,7 @@ flowchart LR
 
 ## Run it yourself
 
-The easiest way is the **[live demo]({{DEMO_URL}})**. To run it locally you need:
+The easiest way is the **[live demo](https://college-business-corner.up.railway.app/)**. To run it locally you need:
 
 - **Node.js 22.12 or newer** (tested on 22.23 and 26.13)
 - A [PayPal Developer](https://developer.paypal.com/) account with a **Platform app in the Sandbox**, a sandbox **Personal** (buyer) account, and sandbox **Business** (seller) accounts
@@ -90,7 +90,7 @@ The easiest way is the **[live demo]({{DEMO_URL}})**. To run it locally you need
 **Backend** (API on `http://localhost:3000`, Swagger docs at `/docs`):
 
 ```bash
-git clone {{REPO_URL}}
+git clone https://github.com/eugeneOnlyEra-ship-it/College-Business-Corner.git
 cd College-Business-Corner/College-Business-Corner-Backend
 cp .env.example .env      # fill in the PayPal and Gemini values; each one is explained inside
 npm install
