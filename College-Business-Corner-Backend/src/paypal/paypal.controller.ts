@@ -1,5 +1,8 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
+import { websiteUrl } from '../frontend-url.js';
 import { CreateOrderDto, OnboardSellerDto } from './dto/paypal.dto.js';
 import { PaypalService } from './paypal.service.js';
 
@@ -10,18 +13,24 @@ import { PaypalService } from './paypal.service.js';
 @ApiTags('paypal')
 @Controller('paypal')
 export class PaypalController {
-  constructor(private readonly paypal: PaypalService) {}
+  constructor(
+    private readonly paypal: PaypalService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Post('onboard')
   onboard(@Body() body: OnboardSellerDto) {
     return this.paypal.createOnboardingLink(body.trackingId);
   }
 
-  // PayPal redirects the seller here after onboarding (dev: just echo the query params,
-  // which include merchantIdInPayPal, permissionsGranted, isEmailConfirmed).
+  // PayPal redirects the seller here after onboarding. Send them back to their business page, which checks the
+  // PayPal status by itself. Without a website to go back to (Swagger testing) the query params are echoed
+  // (merchantIdInPayPal, permissionsGranted, isEmailConfirmed).
   @Get('onboarding-return')
-  onboardingReturn(@Query() query: Record<string, string>) {
-    return query;
+  onboardingReturn(@Query() query: Record<string, string>, @Res() res: Response) {
+    const to = websiteUrl('/sell', this.config.get<string>('FRONTEND_URL'));
+    if (to) return res.redirect(to);
+    return res.json(query);
   }
 
   // Finds the seller's PayPal merchant ID from YOUR tracking id (use after onboarding).

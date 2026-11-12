@@ -11,6 +11,8 @@ import { UPLOADS_DIR } from './paths.js';
 async function bootstrap() {
   // On a host such as Railway, learn our public address from the environment before the app reads its settings.
   applyHostedDefaults(process.env);
+  console.log(`[start] public address (APP_BASE_URL): ${process.env.APP_BASE_URL ?? 'NOT SET'}`);
+  console.log(`[start] website address (FRONTEND_URL): ${process.env.FRONTEND_URL ?? 'NOT SET'}`);
   for (const warning of storageWarnings(process.env)) console.warn(`[storage] WARNING: ${warning}`);
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);

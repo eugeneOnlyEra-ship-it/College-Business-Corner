@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { AuthGuard, OptionalAuthGuard, type AuthedRequest, type MaybeAuthedRequest } from '../auth/auth.guard.js';
+import { websiteUrl } from '../frontend-url.js';
 import { CreateStoreOrderDto } from './orders.dto.js';
 import { OrdersService } from './orders.service.js';
 
@@ -40,10 +41,12 @@ export class OrdersController {
     const frontend = this.config.get<string>('FRONTEND_URL');
     try {
       const order = await this.orders.capture(token);
-      if (frontend) return res.redirect(`${frontend}/#/orders/${order.id}`);
+      const to = websiteUrl(`/orders/${order.id}`, frontend);
+      if (to) return res.redirect(to);
       return res.json(order);
     } catch (err) {
-      if (frontend) return res.redirect(`${frontend}/#/problem`);
+      const to = websiteUrl('/problem', frontend);
+      if (to) return res.redirect(to);
       throw err;
     }
   }
@@ -53,7 +56,8 @@ export class OrdersController {
   async cancelled(@Query('token') token: string | undefined, @Res() res: Response) {
     const result = await this.orders.cancel(token);
     const frontend = this.config.get<string>('FRONTEND_URL');
-    if (frontend) return res.redirect(`${frontend}/#/cancelled`);
+    const to = websiteUrl('/cancelled', frontend);
+    if (to) return res.redirect(to);
     return res.json(result);
   }
 
